@@ -1,0 +1,1159 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 30_StudentRoster.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Lista docente produtiva com avaliação formativa acessível
+
+  PRINCIPAIS FUNCIONALIDADES
+  Lista de estudantes.
+
+  INTEGRAÇÕES
+  Consulta de alunos vinculados, progresso e última atividade.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Lista responsiva com ordenação por teclado e clique, busca em tempo real, estados de carregamento,
+  etiquetas de percurso e avaliação formativa conectada a gradeStudentReport.
+-->
+<section data-component="30_StudentRoster" aria-labelledby="roster-heading" aria-describedby="roster-description" aria-busy="false">
+  <div class="roster-container">
+    <!-- Cabeçalho e Controles de Busca / Filtro -->
+    <header class="roster-header">
+      <div>
+        <span class="roster-tag">[ GESTÃO INDIVIDUAL // TURMA ]</span>
+        <h2 id="roster-heading">Acompanhamento Individual de Alunos</h2>
+        <p class="roster-sub" id="roster-description">Monitore o progresso, identifique estudantes que necessitam de mediação e atribua notas e devolutivas às matérias finais.</p>
+      </div>
+
+      <div class="roster-controls">
+        <!-- 3. Campo de Busca em Tempo Real -->
+        <div class="search-box">
+          <label for="student-search-input" class="sr-only">Buscar aluno por nome ou identificador</label>
+          <input
+            type="search"
+            id="student-search-input"
+            placeholder="Buscar por nome ou ID..."
+            autocomplete="off"
+            aria-label="Buscar aluno por nome ou ID"
+            aria-controls="students-table"
+            aria-describedby="roster-results-status"
+          >
+          <span class="search-icon" aria-hidden="true">🔍</span>
+        </div>
+
+        <div class="class-selector-box">
+          <label for="roster-class-id" class="sr-only">Turma Selecionada</label>
+          <input id="roster-class-id" type="hidden" value="">
+          <button type="button" id="roster-load" class="btn-refresh" title="Recarregar lista" aria-busy="false">
+            <span aria-hidden="true">🔄</span> <span id="roster-load-label">Atualizar</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Indicador de Alertas Rápidos -->
+    <div class="roster-alert-bar" id="roster-summary-bar" role="status" aria-live="polite" aria-atomic="true">
+      <span class="badge-pill count-total" id="badge-total-students">0 alunos</span>
+      <span class="badge-pill count-completed" id="badge-completed-students">0 concluídos</span>
+      <span class="badge-pill count-stalled" id="badge-stalled-students">0 estagnados (+48h)</span>
+    </div>
+
+    <!-- Estados de Carregamento e Erro -->
+    <p data-state="loading" id="roster-loading" class="roster-msg" role="status" aria-live="polite" aria-atomic="true">Carregando prontuário dos estudantes…</p>
+    <p data-state="error" id="roster-error" class="roster-msg error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível carregar a lista de estudantes.</p>
+    <p id="roster-results-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+
+    <!-- 1. Tabela Responsiva com Ordenação Interativa por Clique -->
+    <div class="table-responsive-container" id="roster-table-container" hidden>
+      <table class="roster-table" id="students-table" aria-label="Roster de estudantes com notas e progresso">
+        <caption class="sr-only">Lista de estudantes, progresso, rigor ético, último acesso e ações pedagógicas.</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="sortable-th" data-sort="name" aria-sort="none" tabindex="0">
+              Nome do Estudante <span class="sort-indicator" aria-hidden="true">↕</span>
+            </th>
+            <th scope="col" class="sortable-th" data-sort="progress" aria-sort="none" tabindex="0">
+              Progresso Geral <span class="sort-indicator" aria-hidden="true">↕</span>
+            </th>
+            <th scope="col" class="sortable-th" data-sort="ethicalRigor" aria-sort="none" tabindex="0">
+              Rigor Ético <span class="sort-indicator" aria-hidden="true">↕</span>
+            </th>
+            <th scope="col" class="sortable-th" data-sort="lastSync" aria-sort="none" tabindex="0">
+              Último Acesso <span class="sort-indicator" aria-hidden="true">↕</span>
+            </th>
+            <th scope="col">Situação / Alerta</th>
+            <th scope="col" class="th-actions">Ações Pedagógicas</th>
+          </tr>
+        </thead>
+        <tbody id="students-tbody"></tbody>
+      </table>
+      <p id="empty-search-msg" class="empty-roster-msg" hidden role="status" aria-live="polite"></p>
+    </div>
+
+    <!-- 4. Modal / Diálogo para Avaliar Matéria Final (gradeStudentReport) -->
+    <dialog id="grade-dialog" class="grade-dialog" aria-labelledby="grade-dialog-title" aria-describedby="dialog-report-content dialog-status-msg">
+      <div class="dialog-inner">
+        <header class="dialog-header">
+          <span class="dialog-tag">[ AVALIAÇÃO DE REPORTAGEM // CONSÓRCIO 07 ]</span>
+          <h3 id="grade-dialog-title">Avaliar Matéria do Estudante</h3>
+          <button type="button" class="btn-close-dialog" id="btn-close-dialog" aria-label="Fechar janela de avaliação">✕</button>
+        </header>
+
+        <div class="student-report-preview" id="dialog-report-content" aria-live="polite">
+          <div class="report-meta-row">
+            <span id="dialog-student-name">Estudante: ---</span>
+            <span id="dialog-report-status">Status: ---</span>
+          </div>
+          <h4 id="dialog-headline" class="dialog-headline">Título da Matéria</h4>
+          <p id="dialog-thesis" class="dialog-thesis">Tese central da reportagem...</p>
+          <div class="dialog-evidences" id="dialog-evidences"></div>
+        </div>
+
+        <form id="grade-form" aria-busy="false">
+          <input type="hidden" id="grade-report-id">
+          <div class="form-row">
+            <div class="form-field">
+              <label for="grade-score" class="field-label">Nota da Reportagem (0 a 100):</label>
+              <input type="number" id="grade-score" min="0" max="100" step="1" inputmode="numeric" required placeholder="Ex: 85" aria-describedby="grade-score-hint">
+              <small class="field-hint" id="grade-score-hint">Use um valor inteiro entre 0 e 100.</small>
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label for="grade-feedback" class="field-label">Devolutiva Formativa para o Aluno:</label>
+            <textarea
+              id="grade-feedback"
+              rows="4"
+              maxlength="4000"
+              placeholder="Apresente observações sobre a coerência da tese, escolha das evidências e precisão argumentativa..."
+              required
+              aria-describedby="grade-feedback-hint"
+            ></textarea>
+            <small class="field-hint" id="grade-feedback-hint">A devolutiva deve indicar um próximo passo observável.</small>
+          </div>
+
+          <div class="dialog-actions">
+            <button type="button" class="btn-cancel" id="btn-cancel-grade">Cancelar</button>
+            <button type="submit" class="btn-save-grade" id="btn-save-grade">
+              Salvar Nota & Devolutiva <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <p class="dialog-msg" id="dialog-status-msg" hidden role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
+        </form>
+      </div>
+    </dialog>
+  </div>
+</section>
+
+<style>
+  [data-component="30_StudentRoster"] {
+    --sr-bg: var(--color-deep-shadow);
+    --sr-panel: var(--color-dark-graphite);
+    --sr-card: #101618;
+    --sr-line: #283539;
+    --sr-cyan: var(--color-neon-cyan);
+    --sr-amber: var(--color-warning-amber);
+    --sr-red: var(--color-coral-red);
+    --sr-green: #52c484;
+    --sr-ink: var(--color-light-gray);
+    --sr-muted: var(--color-medium-gray);
+    padding: 24px;
+    color: var(--sr-ink);
+    background: var(--sr-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="30_StudentRoster"] *,
+  [data-component="30_StudentRoster"] *::before,
+  [data-component="30_StudentRoster"] *::after { box-sizing: border-box; }
+
+  [data-component="30_StudentRoster"] .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  [data-component="30_StudentRoster"] .roster-container {
+    max-width: 1160px;
+    margin: 0 auto;
+  }
+
+  [data-component="30_StudentRoster"] .roster-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--sr-line);
+  }
+
+  [data-component="30_StudentRoster"] .roster-tag {
+    color: var(--sr-amber);
+    font-size: 10px;
+    letter-spacing: .14em;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  [data-component="30_StudentRoster"] h2 {
+    margin: 0 0 6px;
+    font: 700 clamp(22px, 3.5vw, 28px) Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="30_StudentRoster"] .roster-sub {
+    margin: 0;
+    color: var(--sr-muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  [data-component="30_StudentRoster"] .roster-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Campo de Busca */
+  [data-component="30_StudentRoster"] .search-box {
+    position: relative;
+    width: 260px;
+  }
+
+  [data-component="30_StudentRoster"] #student-search-input {
+    width: 100%;
+    padding: 9px 32px 9px 12px;
+    background: var(--sr-card);
+    border: 1px solid var(--sr-line);
+    color: #ffffff;
+    font: 12px "IBM Plex Mono", monospace;
+    border-radius: 3px;
+    box-sizing: border-box;
+    transition: border-color .15s ease;
+  }
+
+  [data-component="30_StudentRoster"] #student-search-input:focus {
+    border-color: var(--sr-cyan);
+    outline: 2px solid var(--sr-cyan);
+    outline-offset: 1px;
+  }
+
+  [data-component="30_StudentRoster"] .search-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: var(--sr-muted);
+    pointer-events: none;
+  }
+
+  [data-component="30_StudentRoster"] .btn-refresh {
+    padding: 9px 14px;
+    background: transparent;
+    border: 1px solid var(--sr-line);
+    color: var(--sr-muted);
+    font: 700 11px "IBM Plex Mono", monospace;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  [data-component="30_StudentRoster"] .btn-refresh:hover {
+    border-color: var(--sr-cyan);
+    color: var(--sr-cyan);
+  }
+
+  [data-component="30_StudentRoster"] .btn-refresh:focus-visible,
+  [data-component="30_StudentRoster"] .btn-action-grade:focus-visible,
+  [data-component="30_StudentRoster"] .btn-close-dialog:focus-visible,
+  [data-component="30_StudentRoster"] .btn-cancel:focus-visible,
+  [data-component="30_StudentRoster"] .btn-save-grade:focus-visible {
+    outline: 2px solid var(--sr-amber);
+    outline-offset: 3px;
+  }
+
+  [data-component="30_StudentRoster"] .btn-refresh:disabled,
+  [data-component="30_StudentRoster"] .btn-save-grade:disabled,
+  [data-component="30_StudentRoster"] .btn-cancel:disabled,
+  [data-component="30_StudentRoster"] .btn-close-dialog:disabled {
+    cursor: wait;
+    opacity: .55;
+  }
+
+  /* Barra de Alertas Rápidos */
+  [data-component="30_StudentRoster"] .roster-alert-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  [data-component="30_StudentRoster"] .badge-pill {
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 12px;
+    border: 1px solid transparent;
+  }
+
+  [data-component="30_StudentRoster"] .count-total {
+    background: #192327;
+    color: #d1dde2;
+    border-color: #2b3d44;
+  }
+
+  [data-component="30_StudentRoster"] .count-completed {
+    background: rgba(82, 196, 132, 0.15);
+    color: var(--sr-green);
+    border-color: var(--sr-green);
+  }
+
+  [data-component="30_StudentRoster"] .count-stalled {
+    background: rgba(226, 116, 104, 0.15);
+    color: var(--sr-red);
+    border-color: var(--sr-red);
+  }
+
+  /* Tabela */
+  [data-component="30_StudentRoster"] .table-responsive-container {
+    background: var(--sr-panel);
+    border: 1px solid var(--sr-line);
+    border-radius: 4px;
+    overflow-x: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  [data-component="30_StudentRoster"] .roster-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 12px;
+  }
+
+  [data-component="30_StudentRoster"] th {
+    background: #0e1315;
+    color: #a8b8bd;
+    font-size: 10px;
+    letter-spacing: .08em;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--sr-line);
+    white-space: nowrap;
+  }
+
+  [data-component="30_StudentRoster"] .sortable-th {
+    cursor: pointer;
+    user-select: none;
+    transition: color .15s ease;
+  }
+
+  [data-component="30_StudentRoster"] .sortable-th:hover,
+  [data-component="30_StudentRoster"] .sortable-th:focus-visible {
+    color: var(--sr-cyan);
+    outline: none;
+  }
+
+  [data-component="30_StudentRoster"] .sort-indicator {
+    font-size: 9px;
+    margin-left: 4px;
+  }
+
+  [data-component="30_StudentRoster"] td {
+    padding: 14px;
+    border-bottom: 1px solid #1a2225;
+    vertical-align: middle;
+  }
+
+  [data-component="30_StudentRoster"] tr:hover td {
+    background: #182023;
+  }
+
+  [data-component="30_StudentRoster"] .student-name-cell strong {
+    color: #ffffff;
+    display: block;
+    font-size: 13px;
+  }
+
+  [data-component="30_StudentRoster"] .student-id-sub {
+    font-size: 10px;
+    color: var(--sr-muted);
+  }
+
+  /* Barra de Progresso na Célula */
+  [data-component="30_StudentRoster"] .progress-cell-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  [data-component="30_StudentRoster"] .cell-track {
+    width: 70px;
+    height: 8px;
+    background: #0c1012;
+    border: 1px solid var(--sr-line);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  [data-component="30_StudentRoster"] .cell-fill {
+    height: 100%;
+    background: var(--sr-cyan);
+  }
+
+  [data-component="30_StudentRoster"] .cell-fill.completed {
+    background: var(--sr-green);
+  }
+
+  /* 2. Etiquetas de Status / Alerta */
+  [data-component="30_StudentRoster"] .tag-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+  }
+
+  [data-component="30_StudentRoster"] .tag-completed {
+    background: rgba(82, 196, 132, 0.15);
+    color: var(--sr-green);
+    border: 1px solid var(--sr-green);
+  }
+
+  [data-component="30_StudentRoster"] .tag-stalled {
+    background: rgba(226, 116, 104, 0.15);
+    color: var(--sr-red);
+    border: 1px solid var(--sr-red);
+    animation: pulse-stalled 2s infinite ease-in-out;
+  }
+
+  @keyframes pulse-stalled {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 0.5; }
+  }
+
+  [data-component="30_StudentRoster"] .tag-progress {
+    background: #192428;
+    color: #92a4aa;
+    border: 1px solid #33444a;
+  }
+
+  /* Botão de Ação: Avaliar Matéria */
+  [data-component="30_StudentRoster"] .btn-action-grade {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(104, 212, 208, 0.1);
+    color: var(--sr-cyan);
+    border: 1px solid var(--sr-cyan);
+    font: 700 11px "IBM Plex Mono", monospace;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  [data-component="30_StudentRoster"] .btn-action-grade:hover,
+  [data-component="30_StudentRoster"] .btn-action-grade:focus-visible {
+    background: var(--sr-cyan);
+    color: #071011;
+    outline: 2px solid var(--sr-amber);
+  }
+
+  [data-component="30_StudentRoster"] .btn-graded {
+    border-color: var(--sr-green);
+    color: var(--sr-green);
+    background: rgba(82, 196, 132, 0.1);
+  }
+
+  [data-component="30_StudentRoster"] .empty-roster-msg {
+    padding: 24px;
+    text-align: center;
+    color: var(--sr-muted);
+    font-size: 12px;
+  }
+
+  [data-component="30_StudentRoster"] .roster-msg {
+    padding: 14px 18px;
+    background: var(--sr-panel);
+    border-left: 3px solid var(--sr-cyan);
+    font-size: 12px;
+  }
+
+  [data-component="30_StudentRoster"] .roster-msg.error {
+    border-left-color: var(--sr-red);
+    color: #f7a8a0;
+  }
+
+  /* Modal de Avaliação */
+  [data-component="30_StudentRoster"] .grade-dialog {
+    border: 1px solid var(--sr-cyan);
+    background: #13191c;
+    color: var(--sr-ink);
+    border-radius: 4px;
+    padding: 0;
+    max-width: 620px;
+    width: 90%;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.9);
+  }
+
+  [data-component="30_StudentRoster"] .grade-dialog::backdrop {
+    background: rgba(5, 8, 9, 0.85);
+    backdrop-filter: blur(2px);
+  }
+
+  [data-component="30_StudentRoster"] .dialog-inner {
+    padding: 24px;
+  }
+
+  [data-component="30_StudentRoster"] .dialog-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--sr-line);
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+  }
+
+  [data-component="30_StudentRoster"] .dialog-tag {
+    font-size: 9px;
+    letter-spacing: .14em;
+    color: var(--sr-amber);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  [data-component="30_StudentRoster"] .dialog-header h3 {
+    margin: 0;
+    font: 700 18px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="30_StudentRoster"] .btn-close-dialog {
+    background: transparent;
+    border: 0;
+    color: var(--sr-muted);
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  [data-component="30_StudentRoster"] .student-report-preview {
+    background: #0d1214;
+    border: 1px solid var(--sr-line);
+    border-radius: 3px;
+    padding: 14px;
+    margin-bottom: 18px;
+  }
+
+  [data-component="30_StudentRoster"] .report-meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--sr-muted);
+    margin-bottom: 8px;
+  }
+
+  [data-component="30_StudentRoster"] .dialog-headline {
+    margin: 0 0 6px;
+    font: 700 15px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="30_StudentRoster"] .dialog-thesis {
+    margin: 0;
+    font-size: 12px;
+    color: #b2c0c5;
+    line-height: 1.5;
+  }
+
+  [data-component="30_StudentRoster"] .field-label {
+    display: block;
+    font-size: 11px;
+    color: var(--sr-cyan);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  [data-component="30_StudentRoster"] .form-field {
+    margin-bottom: 16px;
+  }
+
+  [data-component="30_StudentRoster"] input[type="number"],
+  [data-component="30_StudentRoster"] textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: #080c0d;
+    border: 1px solid var(--sr-line);
+    color: #ffffff;
+    font: 12px "IBM Plex Mono", monospace;
+    border-radius: 3px;
+    box-sizing: border-box;
+  }
+
+  [data-component="30_StudentRoster"] input[type="number"]:focus,
+  [data-component="30_StudentRoster"] textarea:focus {
+    border-color: var(--sr-cyan);
+    outline: 2px solid var(--sr-cyan);
+  }
+
+  [data-component="30_StudentRoster"] .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  [data-component="30_StudentRoster"] .btn-cancel {
+    padding: 10px 16px;
+    background: transparent;
+    border: 1px solid var(--sr-line);
+    color: var(--sr-muted);
+    font: 700 11px "IBM Plex Mono", monospace;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  [data-component="30_StudentRoster"] .btn-save-grade {
+    padding: 10px 20px;
+    background: var(--sr-cyan);
+    border: 1px solid var(--sr-cyan);
+    color: #071011;
+    font: 700 11px "IBM Plex Mono", monospace;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  [data-component="30_StudentRoster"] .btn-save-grade:hover {
+    background: #84eae6;
+  }
+
+  [data-component="30_StudentRoster"] .btn-disabled {
+    border-color: var(--sr-line);
+    color: var(--sr-muted);
+    background: transparent;
+    cursor: not-allowed;
+  }
+
+  [data-component="30_StudentRoster"] .field-hint {
+    display: block;
+    margin-top: 5px;
+    color: var(--sr-muted);
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  [data-component="30_StudentRoster"] .dialog-msg {
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    border-left: 3px solid var(--sr-cyan);
+    color: #bfe8e5;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="30_StudentRoster"] .dialog-msg.error {
+    border-left-color: var(--sr-red);
+    color: #f7a8a0;
+  }
+
+  [data-component="30_StudentRoster"] input[aria-invalid="true"],
+  [data-component="30_StudentRoster"] textarea[aria-invalid="true"] {
+    border-color: var(--sr-red);
+  }
+
+  @media (max-width: 760px) {
+    [data-component="30_StudentRoster"] { padding: 18px 14px; }
+    [data-component="30_StudentRoster"] .roster-controls { width: 100%; align-items: stretch; flex-direction: column; }
+    [data-component="30_StudentRoster"] .search-box { width: 100%; }
+    [data-component="30_StudentRoster"] .class-selector-box { display: flex; justify-content: flex-end; }
+    [data-component="30_StudentRoster"] .report-meta-row { flex-direction: column; gap: 5px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="30_StudentRoster"] .tag-stalled,
+    [data-component="30_StudentRoster"] * { animation: none !important; transition-duration: .01ms !important; }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="30_StudentRoster"]');
+  if (!root) return;
+
+  var tbody = root.querySelector('#students-tbody');
+  var loading = root.querySelector('[data-state="loading"]');
+  var error = root.querySelector('[data-state="error"]');
+  var resultsStatus = root.querySelector('#roster-results-status');
+  var tableContainer = root.querySelector('#roster-table-container');
+  var searchInput = root.querySelector('#student-search-input');
+  var emptyMsg = root.querySelector('#empty-search-msg');
+  var loadBtn = root.querySelector('#roster-load');
+  var loadBtnLabel = root.querySelector('#roster-load-label');
+
+  var badgeTotal = root.querySelector('#badge-total-students');
+  var badgeCompleted = root.querySelector('#badge-completed-students');
+  var badgeStalled = root.querySelector('#badge-stalled-students');
+
+  var gradeDialog = root.querySelector('#grade-dialog');
+  var gradeForm = root.querySelector('#grade-form');
+  var btnCloseDialog = root.querySelector('#btn-close-dialog');
+  var btnCancelGrade = root.querySelector('#btn-cancel-grade');
+  var dialogStudentName = root.querySelector('#dialog-student-name');
+  var dialogHeadline = root.querySelector('#dialog-headline');
+  var dialogThesis = root.querySelector('#dialog-thesis');
+  var gradeReportId = root.querySelector('#grade-report-id');
+  var gradeScoreInput = root.querySelector('#grade-score');
+  var gradeFeedbackInput = root.querySelector('#grade-feedback');
+  var dialogStatus = root.querySelector('#dialog-status-msg');
+
+  var allStudents = [];
+  var currentSort = { column: 'name', asc: true };
+  var rosterRequestSerial = 0;
+  var gradeBusy = false;
+  var lastGradeFocus = null;
+
+  function hasScriptRunner() {
+    return Boolean(window.google && window.google.script && window.google.script.run);
+  }
+
+  function announce(message) {
+    if (resultsStatus) resultsStatus.textContent = message || '';
+  }
+
+  function finiteNumber(value, fallback) {
+    var number = Number(value);
+    return isFinite(number) && !isNaN(number) ? number : fallback;
+  }
+
+  function clampPercent(value) {
+    var number = finiteNumber(value, null);
+    return number == null ? null : Math.max(0, Math.min(100, Math.round(number)));
+  }
+
+  function normalizeStudent(raw, index) {
+    if (!raw || typeof raw !== 'object') return null;
+    var id = String(raw.id == null ? '' : raw.id).trim().slice(0, 160);
+    var name = String(raw.name || raw.display_name || 'Estudante ' + (index + 1)).trim().slice(0, 160);
+    if (!id) return null;
+    var progress = clampPercent(raw.progress);
+    var ethicalRigor = clampPercent(raw.ethicalRigor);
+    var grade = raw.reportGrade == null || raw.reportGrade === '' ? null : clampPercent(raw.reportGrade);
+    return {
+      id: id,
+      name: name || 'Estudante',
+      progress: progress,
+      ethicalRigor: ethicalRigor,
+      lastSync: raw.lastSync || null,
+      isCompleted: raw.isCompleted === true,
+      isStalled: raw.isStalled === true,
+      reportId: raw.reportId ? String(raw.reportId).trim().slice(0, 160) : '',
+      reportGrade: grade,
+      reportFeedback: String(raw.reportFeedback || '').trim().slice(0, 4000),
+      reportHeadline: String(raw.reportHeadline || '').trim().slice(0, 240),
+      reportThesis: String(raw.reportThesis || '').trim().slice(0, 4000)
+    };
+  }
+
+  function setRosterBusy(busy, message) {
+    var isBusy = Boolean(busy);
+    root.setAttribute('aria-busy', String(isBusy));
+    if (loading) {
+      if (message) loading.textContent = message;
+      loading.hidden = !isBusy;
+    }
+    if (loadBtn) {
+      loadBtn.disabled = isBusy;
+      loadBtn.setAttribute('aria-busy', String(isBusy));
+    }
+    if (loadBtnLabel) loadBtnLabel.textContent = isBusy ? 'Carregando…' : 'Atualizar';
+  }
+
+  function showRosterError(message, moveFocus) {
+    setRosterBusy(false);
+    if (tableContainer) tableContainer.hidden = true;
+    if (error) {
+      error.textContent = message || 'Não foi possível carregar a lista de estudantes.';
+      error.hidden = false;
+      if (moveFocus) {
+        try { error.focus(); } catch (ignored) {}
+      }
+    }
+    announce(message || 'Não foi possível carregar a lista de estudantes.');
+  }
+
+  // 1. Renderização e Ordenação Interativa
+  function renderTable(data) {
+    if (!tbody) return;
+    tbody.textContent = '';
+    if (emptyMsg) {
+      emptyMsg.textContent = data.length ? 'Nenhum estudante corresponde ao termo de busca informado.' : 'Nenhum estudante foi encontrado nesta turma.';
+      emptyMsg.hidden = data.length > 0;
+    }
+    data.forEach(function(student) {
+      var tr = document.createElement('tr');
+
+      var tdName = document.createElement('td');
+      tdName.className = 'student-name-cell';
+      var name = document.createElement('strong');
+      name.textContent = student.name;
+      var id = document.createElement('span');
+      id.className = 'student-id-sub';
+      id.textContent = 'ID: ' + student.id;
+      tdName.appendChild(name);
+      tdName.appendChild(id);
+      tr.appendChild(tdName);
+
+      var tdProg = document.createElement('td');
+      var progWrapper = document.createElement('div');
+      progWrapper.className = 'progress-cell-wrapper';
+      var track = document.createElement('div');
+      track.className = 'cell-track';
+      track.setAttribute('role', 'progressbar');
+      track.setAttribute('aria-valuemin', '0');
+      track.setAttribute('aria-valuemax', '100');
+      var progressValue = student.progress == null ? 0 : student.progress;
+      track.setAttribute('aria-valuenow', String(progressValue));
+      track.setAttribute('aria-valuetext', student.progress == null ? 'Progresso indisponível' : student.progress + '%');
+      track.setAttribute('aria-label', 'Progresso de ' + student.name);
+      var fill = document.createElement('div');
+      fill.className = 'cell-fill' + (student.progress === 100 ? ' completed' : '');
+      fill.style.width = progressValue + '%';
+      track.appendChild(fill);
+      var progressLabel = document.createElement('span');
+      progressLabel.textContent = student.progress == null ? '—' : student.progress + '%';
+      progWrapper.appendChild(track);
+      progWrapper.appendChild(progressLabel);
+      tdProg.appendChild(progWrapper);
+      tr.appendChild(tdProg);
+
+      var tdRigor = document.createElement('td');
+      var rigor = document.createElement('strong');
+      rigor.style.color = 'var(--color-neon-cyan)';
+      rigor.textContent = student.ethicalRigor == null ? '—' : student.ethicalRigor + '%';
+      tdRigor.appendChild(rigor);
+      tr.appendChild(tdRigor);
+
+      var tdSync = document.createElement('td');
+      tdSync.textContent = student.lastSync ? formatDateTime(student.lastSync) : 'Sem atividade recente';
+      tr.appendChild(tdSync);
+
+      var tdStatus = document.createElement('td');
+      var status = document.createElement('span');
+      status.className = 'tag-badge';
+      if (student.isCompleted) {
+        status.className += ' tag-completed';
+        status.textContent = '✓ CONCLUÍDO';
+      } else if (student.isStalled) {
+        status.className += ' tag-stalled';
+        status.textContent = '⚠ ESTAGNADO (+48h)';
+      } else {
+        status.className += ' tag-progress';
+        status.textContent = 'EM ANDAMENTO';
+      }
+      tdStatus.appendChild(status);
+      tr.appendChild(tdStatus);
+
+      var tdAction = document.createElement('td');
+      var btnGrade = document.createElement('button');
+      btnGrade.type = 'button';
+      var hasReport = Boolean(student.reportId);
+      var isGraded = student.reportGrade !== null && student.reportGrade !== undefined;
+      btnGrade.className = 'btn-action-grade' + (isGraded ? ' btn-graded' : '') + (!hasReport ? ' btn-disabled' : '');
+      btnGrade.textContent = !hasReport ? 'Matéria não sincronizada' : (isGraded ? '✓ Nota: ' + student.reportGrade : '📝 Avaliar matéria');
+      btnGrade.disabled = !hasReport;
+      btnGrade.title = hasReport ? 'Visualizar matéria e atribuir nota e devolutiva formativa' : 'A matéria final ainda não foi sincronizada.';
+      btnGrade.setAttribute('aria-label', hasReport ? 'Avaliar matéria de ' + student.name : 'Matéria de ' + student.name + ' não sincronizada');
+      if (hasReport) btnGrade.addEventListener('click', function() { openGradeDialog(student, btnGrade); });
+      tdAction.appendChild(btnGrade);
+      tr.appendChild(tdAction);
+      tbody.appendChild(tr);
+    });
+  }
+
+  // 1. Ordenação por Clique nos Cabeçalhos
+  var sortableHeaders = root.querySelectorAll('.sortable-th');
+  var initialNameHeader = root.querySelector('[data-sort="name"]');
+  if (initialNameHeader) {
+    initialNameHeader.setAttribute('aria-sort', 'ascending');
+    var initialIndicator = initialNameHeader.querySelector('.sort-indicator');
+    if (initialIndicator) initialIndicator.textContent = '▲';
+  }
+  function sortByHeader(th) {
+    var col = th && th.getAttribute('data-sort');
+    if (!col) return;
+    if (currentSort.column === col) currentSort.asc = !currentSort.asc;
+    else { currentSort.column = col; currentSort.asc = true; }
+    sortableHeaders.forEach(function(header) {
+      header.setAttribute('aria-sort', 'none');
+      var indicator = header.querySelector('.sort-indicator');
+      if (indicator) indicator.textContent = '↕';
+    });
+    th.setAttribute('aria-sort', currentSort.asc ? 'ascending' : 'descending');
+    var activeIndicator = th.querySelector('.sort-indicator');
+    if (activeIndicator) activeIndicator.textContent = currentSort.asc ? '▲' : '▼';
+    applySortAndFilter();
+    announce('Lista ordenada por ' + (col === 'name' ? 'nome' : col === 'progress' ? 'progresso' : col === 'ethicalRigor' ? 'rigor ético' : 'último acesso') + '.');
+  }
+
+  sortableHeaders.forEach(function(th) {
+    th.addEventListener('click', function() { sortByHeader(th); });
+    th.addEventListener('keydown', function(event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      sortByHeader(th);
+    });
+  });
+
+  function applySortAndFilter() {
+    var query = (searchInput ? searchInput.value : '').toLocaleLowerCase('pt-BR').trim();
+
+    var filtered = allStudents.filter(function(s) {
+      if (!query) return true;
+      return s.name.toLocaleLowerCase('pt-BR').indexOf(query) >= 0 || s.id.toLocaleLowerCase('pt-BR').indexOf(query) >= 0;
+    });
+
+    filtered.sort(function(a, b) {
+      var valA = a[currentSort.column];
+      var valB = b[currentSort.column];
+      var direction = currentSort.asc ? 1 : -1;
+      if (currentSort.column === 'lastSync') {
+        var timeA = valA ? finiteNumber(new Date(valA).getTime(), 0) : 0;
+        var timeB = valB ? finiteNumber(new Date(valB).getTime(), 0) : 0;
+        return (timeA - timeB) * direction;
+      }
+      if (typeof valA === 'string' || typeof valB === 'string') {
+        return String(valA || '').localeCompare(String(valB || ''), 'pt-BR', { sensitivity: 'base' }) * direction;
+      }
+      var numericA = valA == null ? -1 : Number(valA);
+      var numericB = valB == null ? -1 : Number(valB);
+      return (numericA - numericB) * direction;
+    });
+
+    renderTable(filtered);
+    if (resultsStatus) {
+      resultsStatus.textContent = filtered.length + ' estudante' + (filtered.length === 1 ? '' : 's') + ' visível' + (filtered.length === 1 ? '' : 'is') + (query ? ' para a busca atual.' : '.');
+    }
+  }
+
+  // 3. Busca em Tempo Real
+  if (searchInput) {
+    searchInput.addEventListener('input', applySortAndFilter);
+  }
+
+  // 4. Diálogo de Avaliação e Integração com gradeStudentReport
+  function showDialogStatus(message, tone, moveFocus) {
+    if (!dialogStatus) return;
+    dialogStatus.className = 'dialog-msg' + (tone === 'error' ? ' error' : '');
+    dialogStatus.textContent = message || '';
+    dialogStatus.hidden = !message;
+    dialogStatus.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+    if (message && moveFocus) {
+      try { dialogStatus.focus(); } catch (ignored) {}
+    }
+  }
+
+  function setGradeBusy(busy) {
+    gradeBusy = Boolean(busy);
+    if (gradeForm) gradeForm.setAttribute('aria-busy', String(gradeBusy));
+    var submitBtn = gradeForm && gradeForm.querySelector('#btn-save-grade');
+    [gradeScoreInput, gradeFeedbackInput, btnCancelGrade, btnCloseDialog].forEach(function(control) {
+      if (control) control.disabled = gradeBusy;
+    });
+    if (submitBtn) submitBtn.disabled = gradeBusy;
+    if (submitBtn) submitBtn.setAttribute('aria-busy', String(gradeBusy));
+  }
+
+  function openGradeDialog(student, trigger) {
+    if (!gradeDialog || !student || !student.reportId || gradeBusy) return;
+    lastGradeFocus = trigger || document.activeElement;
+    if (dialogStudentName) dialogStudentName.textContent = 'Estudante: ' + student.name + ' (' + student.id + ')';
+    if (gradeReportId) gradeReportId.value = student.reportId;
+    if (gradeScoreInput) {
+      gradeScoreInput.value = student.reportGrade == null ? '' : String(student.reportGrade);
+      gradeScoreInput.removeAttribute('aria-invalid');
+    }
+    if (gradeFeedbackInput) {
+      gradeFeedbackInput.value = student.reportFeedback || '';
+      gradeFeedbackInput.removeAttribute('aria-invalid');
+    }
+    if (dialogHeadline) dialogHeadline.textContent = student.reportHeadline || 'Título da matéria indisponível';
+    if (dialogThesis) dialogThesis.textContent = student.reportThesis || 'A tese da reportagem ainda não foi sincronizada.';
+    showDialogStatus('', 'success', false);
+    setGradeBusy(false);
+    try {
+      if (!gradeDialog.open) gradeDialog.showModal();
+      if (gradeScoreInput) gradeScoreInput.focus();
+    } catch (dialogError) {
+      showDialogStatus('Não foi possível abrir a avaliação agora.', 'error', true);
+    }
+  }
+
+  function closeDialog() {
+    if (!gradeDialog || gradeBusy) return;
+    try { if (gradeDialog.open) gradeDialog.close(); } catch (ignored) {}
+    showDialogStatus('', 'success', false);
+    if (lastGradeFocus && document.contains(lastGradeFocus) && typeof lastGradeFocus.focus === 'function') {
+      try { lastGradeFocus.focus(); } catch (ignored) {}
+    }
+    lastGradeFocus = null;
+  }
+
+  if (btnCloseDialog) btnCloseDialog.addEventListener('click', closeDialog);
+  if (btnCancelGrade) btnCancelGrade.addEventListener('click', closeDialog);
+  if (gradeDialog) gradeDialog.addEventListener('cancel', function(event) { if (gradeBusy) event.preventDefault(); });
+
+  [gradeScoreInput, gradeFeedbackInput].forEach(function(input) {
+    if (!input) return;
+    input.addEventListener('input', function() {
+      input.removeAttribute('aria-invalid');
+      if (dialogStatus && dialogStatus.classList.contains('error')) showDialogStatus('', 'success', false);
+    });
+  });
+
+  if (gradeForm) {
+    gradeForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (gradeBusy || !gradeForm.reportValidity()) return;
+      var repId = gradeReportId ? String(gradeReportId.value || '').trim() : '';
+      var score = gradeScoreInput ? Number(gradeScoreInput.value) : NaN;
+      var feedback = gradeFeedbackInput ? gradeFeedbackInput.value.trim() : '';
+      if (!repId || !isFinite(score) || isNaN(score) || score < 0 || score > 100 || !feedback) {
+        if (gradeScoreInput && (!isFinite(score) || score < 0 || score > 100)) gradeScoreInput.setAttribute('aria-invalid', 'true');
+        if (gradeFeedbackInput && !feedback) gradeFeedbackInput.setAttribute('aria-invalid', 'true');
+        showDialogStatus('Informe uma nota entre 0 e 100 e uma devolutiva.', 'error', true);
+        return;
+      }
+      var teacher = window.currentUser || null;
+      if (!teacher || String(teacher.role || '').trim().toLowerCase() !== 'teacher') {
+        showDialogStatus('Sessão docente indisponível. Entre novamente para continuar.', 'error', true);
+        return;
+      }
+      if (!hasScriptRunner()) {
+        showDialogStatus('Servidor indisponível. A avaliação não foi registrada.', 'error', true);
+        return;
+      }
+      setGradeBusy(true);
+      showDialogStatus('Salvando nota e devolutiva…', 'success', false);
+      window.google.script.run
+        .withSuccessHandler(function(response) {
+          if (!response || !response.ok) {
+            setGradeBusy(false);
+            showDialogStatus('Não foi possível salvar a avaliação. Tente novamente.', 'error', true);
+            return;
+          }
+          setGradeBusy(false);
+          var target = allStudents.find(function(student) { return student.reportId === repId; });
+          var savedGrade = finiteNumber(response.data && response.data.grade, score);
+          var savedFeedback = response.data && typeof response.data.feedback === 'string' ? response.data.feedback : feedback;
+          if (target) {
+            target.reportGrade = clampPercent(savedGrade);
+            target.reportFeedback = savedFeedback.slice(0, 4000);
+            applySortAndFilter();
+          }
+          showDialogStatus('Avaliação salva. A nota e a devolutiva já aparecem na lista.', 'success', true);
+          if (typeof window.showToast === 'function') window.showToast('Avaliação salva', 'Nota e devolutiva registradas com sucesso.', 'success');
+        })
+        .withFailureHandler(function() {
+          setGradeBusy(false);
+          showDialogStatus('Não foi possível salvar a avaliação. Tente novamente.', 'error', true);
+        })
+        .gradeStudentReport(teacher, repId, score, feedback);
+    });
+  }
+
+  function formatDateTime(dtStr) {
+    try {
+      var d = new Date(dtStr);
+      if (isNaN(d.getTime())) return 'Data indisponível';
+      return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch(e) {
+      return 'Data indisponível';
+    }
+  }
+
+  function updateSummaryBadges(data) {
+    var total = data.length;
+    var completed = data.filter(function(s) { return s.isCompleted; }).length;
+    var stalled = data.filter(function(s) { return s.isStalled; }).length;
+
+    if (badgeTotal) badgeTotal.textContent = total + ' alunos matriculados';
+    if (badgeCompleted) badgeCompleted.textContent = completed + ' concluídos';
+    if (badgeStalled) badgeStalled.textContent = stalled + ' estagnados (+48h)';
+  }
+
+  function loadRoster() {
+    var requestId = ++rosterRequestSerial;
+    var classInput = root.querySelector('#roster-class-id');
+    var classId = classInput ? String(classInput.value || '').trim().slice(0, 160) : '';
+    if (error) error.hidden = true;
+    setRosterBusy(true, 'Carregando prontuário dos estudantes…');
+    if (tableContainer) tableContainer.hidden = true;
+    if (!hasScriptRunner()) {
+      allStudents = [];
+      updateSummaryBadges(allStudents);
+      showRosterError('Servidor indisponível. O prontuário não foi sincronizado.', true);
+      return;
+    }
+
+    window.google.script.run
+        .withSuccessHandler(function(response) {
+          if (requestId !== rosterRequestSerial) return;
+          if (!response || !response.ok || !response.data || !Array.isArray(response.data)) {
+            showRosterError('Não foi possível carregar os dados confirmados dos estudantes.', true);
+            return;
+          }
+          allStudents = response.data.map(normalizeStudent).filter(Boolean);
+          updateSummaryBadges(allStudents);
+          applySortAndFilter();
+          if (tableContainer) tableContainer.hidden = false;
+          setRosterBusy(false);
+          announce(allStudents.length + ' estudante' + (allStudents.length === 1 ? '' : 's') + ' carregado' + (allStudents.length === 1 ? '' : 's') + '.');
+        })
+        .withFailureHandler(function() {
+          if (requestId !== rosterRequestSerial) return;
+          showRosterError('Não foi possível carregar os dados confirmados dos estudantes.', true);
+        })
+        .getClassRoster(window.currentUser || null, classId);
+  }
+
+  if (loadBtn) {
+    loadBtn.addEventListener('click', loadRoster);
+  }
+
+  loadRoster();
+}());
+</script>

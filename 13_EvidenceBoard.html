@@ -1,0 +1,258 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 13_EvidenceBoard.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Quadro de evidências com estados de carregamento, vazio e falha
+
+  PRINCIPAIS FUNCIONALIDADES
+  Quadro de evidências.
+
+  INTEGRAÇÕES
+  Organiza cartões, relações e evidências selecionadas.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  O quadro consome a lista desbloqueada do controlador, restaura a sessão salva quando
+  necessário e mantém carregamento, vazio, sucesso e falha anunciáveis por teclado.
+-->
+<section data-component="13_EvidenceBoard" aria-labelledby="evidence-board-title" aria-describedby="evidence-board-error" aria-busy="true">
+  <h2 id="evidence-board-title">Quadro de evidências</h2>
+
+  <!-- 2. Estrutura Esqueleto Idêntica aos Cartões de Evidências (Prompt 63) -->
+  <div id="evidence-skeleton" class="evidence-grid skeleton-container" aria-label="Carregando evidências..." aria-live="polite" aria-atomic="true" role="status">
+    <div class="card skeleton-card">
+      <div class="skeleton" style="width: 28px; height: 28px; border-radius: 4px;"></div>
+      <div class="skeleton skeleton-text" style="width: 75%; height: 16px; margin-top: 12px;"></div>
+      <div class="skeleton skeleton-text" style="width: 50%; height: 12px; margin-top: 8px;"></div>
+    </div>
+    <div class="card skeleton-card">
+      <div class="skeleton" style="width: 28px; height: 28px; border-radius: 4px;"></div>
+      <div class="skeleton skeleton-text" style="width: 80%; height: 16px; margin-top: 12px;"></div>
+      <div class="skeleton skeleton-text" style="width: 45%; height: 12px; margin-top: 8px;"></div>
+    </div>
+    <div class="card skeleton-card">
+      <div class="skeleton" style="width: 28px; height: 28px; border-radius: 4px;"></div>
+      <div class="skeleton skeleton-text" style="width: 65%; height: 16px; margin-top: 12px;"></div>
+      <div class="skeleton skeleton-text" style="width: 55%; height: 12px; margin-top: 8px;"></div>
+    </div>
+    <div class="card skeleton-card">
+      <div class="skeleton" style="width: 28px; height: 28px; border-radius: 4px;"></div>
+      <div class="skeleton skeleton-text" style="width: 70%; height: 16px; margin-top: 12px;"></div>
+      <div class="skeleton skeleton-text" style="width: 40%; height: 12px; margin-top: 8px;"></div>
+    </div>
+  </div>
+
+  <p data-state="error" id="evidence-board-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível carregar as evidências.</p>
+  <button type="button" id="evidence-board-retry" hidden>TENTAR NOVAMENTE</button>
+
+  <!-- Conteúdo Real (Substituição Instantânea sem Deslocamento de Layout / CLS = 0) -->
+  <div data-slot="content" class="evidence-grid" aria-live="polite"></div>
+</section>
+<style>
+  [data-component="13_EvidenceBoard"] { color: var(--color-light-gray); background: var(--color-deep-shadow); padding: 24px; font-family: "Courier New", monospace; }
+  [data-component="13_EvidenceBoard"] .evidence-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; transition: grid-template-columns .3s ease; }
+  [data-component="13_EvidenceBoard"][data-audio-open="true"] .evidence-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  [data-component="13_EvidenceBoard"] .card { padding: 16px; border: 1px solid var(--color-slate-gray); background: var(--color-dark-graphite); text-align: left; cursor: pointer; }
+  [data-component="13_EvidenceBoard"] .card:hover, [data-component="13_EvidenceBoard"] .card:focus-visible { border-color: var(--color-neon-cyan); outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="13_EvidenceBoard"] .card:disabled { cursor: not-allowed; opacity: .58; }
+  [data-component="13_EvidenceBoard"] .icon { width: 28px; height: 28px; color: var(--color-neon-cyan); fill: none; stroke: currentColor; stroke-width: 1.5; }
+  [data-component="13_EvidenceBoard"] strong, [data-component="13_EvidenceBoard"] small { display: block; margin-top: 10px; }
+  [data-component="13_EvidenceBoard"] small { color: #9eaaae; }
+  [data-component="13_EvidenceBoard"] .card-note { display: block; margin-top: 8px; color: #9eaaae; font-size: 10px; line-height: 1.45; }
+  [data-component="13_EvidenceBoard"] #evidence-board-retry { margin-top: 16px; padding: 10px 14px; border: 1px solid var(--color-neon-cyan); color: var(--color-neon-cyan); background: transparent; font: 700 11px "Courier New", monospace; cursor: pointer; }
+  [data-component="13_EvidenceBoard"] #evidence-board-retry:hover, [data-component="13_EvidenceBoard"] #evidence-board-retry:focus-visible { background: var(--color-neon-cyan); color: #071011; outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+
+  /* Skeleton Screens com Shimmer Pulso Cinza-Grafite */
+  @keyframes skeleton-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  [data-component="13_EvidenceBoard"] .skeleton {
+    background: linear-gradient(90deg, #141a1d 25%, #222d32 50%, #141a1d 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+    border-radius: 3px;
+  }
+  [data-component="13_EvidenceBoard"] .skeleton-card {
+    border: 1px solid #28363b;
+    background: var(--color-dark-graphite);
+    cursor: default;
+  }
+  [data-component="13_EvidenceBoard"] .skeleton-text {
+    height: 12px;
+  }
+</style>
+<script>(function() {
+  var root = document.querySelector('[data-component="13_EvidenceBoard"]');
+  if (!root) return;
+  var skeleton = root.querySelector('#evidence-skeleton');
+  var error = root.querySelector('[data-state="error"]');
+  var retry = root.querySelector('#evidence-board-retry');
+  var content = root.querySelector('[data-slot="content"]');
+  var icons = { audio: 'M4 10v4h3l4 3V7l-4 3H4zm9-2a5 5 0 010 8m2-10a8 8 0 010 12', document: 'M6 3h8l3 3v15H6zM14 3v4h4', spreadsheet: 'M5 3h14v18H5zM5 9h14M5 15h14M10 9v12M15 9v12', alert: 'M12 3l9 18H3L12 3zm0 6v5m0 3v1' };
+
+  function icon(type) { return icons[type] || icons.document; }
+
+  function setBusy(busy) {
+    root.setAttribute('aria-busy', String(Boolean(busy)));
+    if (skeleton) skeleton.hidden = !busy;
+    if (retry && busy) retry.hidden = true;
+  }
+
+  function restoreSessionState() {
+    if (window.currentUserId) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.token || !saved.user || !saved.user.id) return '';
+      window.currentSessionToken = String(saved.token);
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function clearContent() {
+    if (content) content.textContent = '';
+  }
+
+  function showUnavailable(message) {
+    setBusy(false);
+    clearContent();
+    if (error) {
+      error.textContent = message || 'Servidor indisponível. As evidências não foram confirmadas.';
+      error.hidden = false;
+      try { error.focus(); } catch (e) {}
+    }
+    if (retry) retry.hidden = false;
+  }
+
+  function handleData(response) {
+    setBusy(false);
+    if (!response || !response.ok) {
+      var code = response && response.error && response.error.code;
+      if (code === 'INVALID_USER') {
+        try { localStorage.removeItem('sombras.session'); } catch (e) {}
+        window.currentUserId = '';
+        showUnavailable('Sua sessão não está ativa. Entre novamente para consultar as evidências.');
+      } else {
+        showUnavailable(response && response.error && response.error.message || 'Não foi possível carregar as evidências.');
+      }
+      return;
+    }
+
+    if (!Array.isArray(response.data)) {
+      showUnavailable('O servidor devolveu um formato de evidências inválido.');
+      return;
+    }
+    if (error) error.hidden = true;
+    if (retry) retry.hidden = true;
+    clearContent();
+    if (!response.data.length) {
+      var empty = document.createElement('p');
+      empty.className = 'check-state-msg';
+      empty.textContent = 'Nenhuma evidência desbloqueada nesta sessão.';
+      content.appendChild(empty);
+      return;
+    }
+
+    response.data.forEach(function(item) {
+      item = item || {};
+      var type = String(item.type || item.format || 'document').toLowerCase();
+      var evidenceId = String(item.id || '');
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'card';
+      card.setAttribute('aria-label', 'Abrir evidência: ' + String(item.title || 'Evidência sem título'));
+      if (!evidenceId) card.disabled = true;
+
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.classList.add('icon');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('aria-hidden', 'true');
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', icon(type));
+      svg.appendChild(path);
+      card.appendChild(svg);
+
+      var title = document.createElement('strong');
+      title.textContent = String(item.title || 'Evidência sem título');
+      card.appendChild(title);
+
+      var meta = document.createElement('small');
+      meta.textContent = [
+        item.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA',
+        item.source || 'Origem não informada',
+        item.reliability || 'Confiabilidade não informada',
+        item.phase || 'Fase não informada'
+      ].join(' · ');
+      card.appendChild(meta);
+
+      var note = document.createElement('span');
+      note.className = 'card-note';
+      note.textContent = item.natureNote || item.status || 'Evidência disponível para consulta.';
+      card.appendChild(note);
+
+      card.addEventListener('click', function() {
+        if (!evidenceId) return;
+        window.dispatchEvent(new CustomEvent(type === 'audio' ? 'audio:open' : 'evidence:open', { detail: evidenceId }));
+      });
+      content.appendChild(card);
+    });
+  }
+
+  function loadEvidence() {
+    setBusy(true);
+    if (error) error.hidden = true;
+    clearContent();
+    var userId = restoreSessionState();
+    if (!userId) {
+      showUnavailable('Sua sessão não está ativa. Entre novamente para consultar as evidências.');
+      return;
+    }
+    if (!window.google || !google.script || !google.script.run) {
+      showUnavailable('Servidor indisponível. As evidências não foram confirmadas.');
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(handleData)
+      .withFailureHandler(function() {
+        showUnavailable('Falha de sincronização. As evidências não foram confirmadas; tente novamente.');
+      })
+      .listUnlockedEvidence(userId);
+  }
+
+  if (retry) retry.addEventListener('click', loadEvidence);
+  window.addEventListener('route:changed', function(event) {
+    if (event.detail && event.detail.route === 'evidence') loadEvidence();
+  });
+  window.addEventListener('audio:open', function() { root.dataset.audioOpen = 'true'; });
+  window.addEventListener('audio:close', function() { root.dataset.audioOpen = 'false'; });
+  loadEvidence();
+}());</script>

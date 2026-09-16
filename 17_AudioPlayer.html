@@ -1,0 +1,302 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 17_AudioPlayer.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Player de áudio investigativo
+
+  PRINCIPAIS FUNCIONALIDADES
+  Reproduz a evidência, exibe sua transcrição e registra uma escuta concluída.
+
+  CONTRATO DE FRONTEND
+  - Recebe `audio:open` com o ID da evidência.
+  - Consulta `getAudioMetadata` e, quando necessário, `getAudioTranscript`.
+  - Envia `markAudioListened` uma única vez por reprodução carregada.
+  - Insere dados remotos com textContent e mantém estados anunciáveis.
+-->
+<section data-component="17_AudioPlayer" aria-labelledby="audio-player-heading" aria-describedby="audio-player-status" aria-busy="false" hidden>
+  <div class="audio-header">
+    <div>
+      <span class="audio-kicker">EVIDÊNCIA // ÁUDIO</span>
+      <h2 id="audio-player-heading">Player de áudio</h2>
+    </div>
+    <p data-state="loading" id="audio-player-loading" hidden role="status" aria-live="polite" aria-atomic="true">Carregando faixa…</p>
+  </div>
+  <p data-state="error" id="audio-player-status" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível concluir a operação.</p>
+  <p data-state="empty" id="audio-player-empty" role="status" aria-live="polite" aria-atomic="true">Nenhum áudio selecionado.</p>
+  <button type="button" id="audio-player-retry" class="audio-button retry-button" hidden>TENTAR NOVAMENTE</button>
+  <div data-slot="content" class="audio-content" aria-live="polite"></div>
+</section>
+
+<style>
+  [data-component="17_AudioPlayer"] { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; max-height: min(52vh, 430px); overflow-y: auto; padding: 16px 20px 18px; color: var(--color-light-gray); background: var(--color-dark-graphite); border-top: 1px solid var(--color-neon-cyan); box-shadow: 0 -8px 26px rgba(0,0,0,.3); font-family: "Courier New", monospace; }
+  [data-component="17_AudioPlayer"] .audio-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; max-width: 900px; margin: 0 auto; }
+  [data-component="17_AudioPlayer"] .audio-kicker { color: var(--color-warning-amber); font-size: 10px; letter-spacing: .12em; }
+  [data-component="17_AudioPlayer"] h2 { margin: 7px 0 0; font: 700 21px/1.2 Georgia, serif; color: #fff; }
+  [data-component="17_AudioPlayer"] [data-state="loading"] { margin: 0; color: #9eaaae; font-size: 10px; }
+  [data-component="17_AudioPlayer"] [data-state="error"] { max-width: 900px; margin: 12px auto 0; padding: 10px; border-left: 2px solid var(--color-coral-red); color: #f0aaa2; font-size: 11px; line-height: 1.5; }
+  [data-component="17_AudioPlayer"] [data-state="empty"] { max-width: 900px; margin: 12px auto 0; color: #9eaaae; font-size: 11px; }
+  [data-component="17_AudioPlayer"] .audio-content { max-width: 900px; margin: 14px auto 0; }
+  [data-component="17_AudioPlayer"] .audio-title { margin: 0 0 8px; font: 700 17px/1.25 Georgia, serif; }
+  [data-component="17_AudioPlayer"] .audio-nature { margin: 8px 0 4px; color: var(--color-warning-amber); font-size: 10px; letter-spacing: .06em; }
+  [data-component="17_AudioPlayer"] .audio-nature-note, [data-component="17_AudioPlayer"] .audio-provenance, [data-component="17_AudioPlayer"] .audio-source-note, [data-component="17_AudioPlayer"] .listen-status { margin: 0 0 10px; color: #9eaaae; font-size: 10px; line-height: 1.45; }
+  [data-component="17_AudioPlayer"] .audio-provenance { padding-left: 10px; border-left: 2px solid var(--color-neon-cyan); }
+  [data-component="17_AudioPlayer"] .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  [data-component="17_AudioPlayer"] audio { width: min(100%, 620px); min-width: min(260px, 100%); }
+  [data-component="17_AudioPlayer"] .audio-button { padding: 8px 10px; border: 1px solid var(--color-neon-cyan); color: var(--color-neon-cyan); background: transparent; font: 700 10px "Courier New", monospace; cursor: pointer; }
+  [data-component="17_AudioPlayer"] .audio-button:hover, [data-component="17_AudioPlayer"] .audio-button:focus-visible { color: #071011; background: var(--color-neon-cyan); outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="17_AudioPlayer"] .audio-button:disabled { cursor: not-allowed; opacity: .55; }
+  [data-component="17_AudioPlayer"] .retry-button { display: block; max-width: 900px; margin: 12px auto 0; }
+  [data-component="17_AudioPlayer"] .transcript-heading { margin: 16px 0 7px; color: var(--color-neon-cyan); font-size: 10px; letter-spacing: .1em; }
+  [data-component="17_AudioPlayer"] .transcript { margin: 0; max-width: 75ch; color: #b9c3c5; line-height: 1.7; }
+  [data-component="17_AudioPlayer"] .transcript-word.active { color: #071011; background: var(--color-warning-amber); }
+  @media (max-width: 620px) { [data-component="17_AudioPlayer"] { padding: 14px; } [data-component="17_AudioPlayer"] .audio-header { flex-direction: column; gap: 7px; } [data-component="17_AudioPlayer"] audio { width: 100%; } }
+</style>
+
+<script>(function() {
+  var root = document.querySelector('[data-component="17_AudioPlayer"]');
+  if (!root) return;
+
+  var loading = root.querySelector('[data-state="loading"]');
+  var error = root.querySelector('[data-state="error"]');
+  var empty = root.querySelector('[data-state="empty"]');
+  var retry = root.querySelector('#audio-player-retry');
+  var content = root.querySelector('[data-slot="content"]');
+  var currentEvidenceId = '';
+  var currentPlayer = null;
+  var lastFocusedElement = null;
+  var requestSerial = 0;
+  var listenedSent = false;
+
+  function setState(state, message) {
+    root.dataset.state = state;
+    root.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+    if (loading) loading.hidden = state !== 'loading';
+    if (error) {
+      if (message) error.textContent = message;
+      error.hidden = state !== 'error';
+    }
+    if (empty) empty.hidden = state !== 'empty';
+    if (retry) retry.hidden = state !== 'error' || !currentEvidenceId;
+  }
+
+  function restoreUserId() {
+    if (window.currentUserId) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.user || !saved.user.id) return '';
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function clearPlayer() {
+    if (!currentPlayer) return;
+    try { currentPlayer.pause(); } catch (e) {}
+    currentPlayer.removeAttribute('src');
+    try { currentPlayer.load(); } catch (e) {}
+    currentPlayer = null;
+  }
+
+  function safeAudioUrl(value) {
+    return typeof value === 'string' && /^data:audio\/[a-z0-9.+-]+;base64,/i.test(value);
+  }
+
+  function renderTranscript(container, transcript, player) {
+    container.textContent = '';
+    var text = String(transcript || '').trim();
+    if (!text) {
+      container.textContent = 'Transcrição indisponível para esta faixa.';
+      return;
+    }
+    var words = [];
+    text.split(/(\s+)/).forEach(function(token) {
+      if (/^\s+$/.test(token)) {
+        container.appendChild(document.createTextNode(token));
+        return;
+      }
+      var word = document.createElement('span');
+      word.className = 'transcript-word';
+      word.textContent = token;
+      container.appendChild(word);
+      words.push(word);
+    });
+    if (!player || !words.length) return;
+    player.addEventListener('timeupdate', function() {
+      if (!player.duration || !isFinite(player.duration)) return;
+      var activeIndex = Math.min(words.length - 1, Math.floor((player.currentTime / player.duration) * words.length));
+      words.forEach(function(word, index) { word.classList.toggle('active', index === activeIndex); });
+    });
+  }
+
+  function markListened(userId, evidenceId, status) {
+    if (listenedSent) return;
+    listenedSent = true;
+    if (!window.google || !google.script || !google.script.run) {
+      if (status) status.textContent = 'Escuta concluída localmente; servidor indisponível para registrar.';
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (status) status.textContent = response && response.ok ? 'Escuta registrada no percurso.' : 'Escuta concluída; registro pendente de sincronização.';
+      })
+      .withFailureHandler(function() {
+        if (status) status.textContent = 'Escuta concluída; não foi possível sincronizar o registro.';
+      })
+      .markAudioListened(userId, evidenceId);
+  }
+
+  function closePlayer() {
+    requestSerial++;
+    var closedId = currentEvidenceId;
+    clearPlayer();
+    root.hidden = true;
+    currentEvidenceId = '';
+    listenedSent = false;
+    setState('empty');
+    if (content) content.textContent = '';
+    window.dispatchEvent(new CustomEvent('audio:close', { detail: closedId }));
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      try { lastFocusedElement.focus(); } catch (e) {}
+    }
+  }
+
+  function showError(message) {
+    root.hidden = false;
+    setState('error', message || 'Não foi possível carregar o áudio.');
+    try { if (error) error.focus(); } catch (e) {}
+  }
+
+  function renderAudio(data, evidenceId, userId, serial) {
+    if (!data || typeof data !== 'object' || !data.title) {
+      showError('O áudio retornou dados incompletos.');
+      return;
+    }
+    if (serial !== requestSerial || !content) return;
+    clearPlayer();
+    content.textContent = '';
+
+    var title = document.createElement('h3');
+    title.className = 'audio-title';
+    title.textContent = String(data.title);
+    content.appendChild(title);
+    var nature = document.createElement('p');
+    nature.className = 'audio-nature';
+    nature.textContent = data.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA — REVISÃO DOCENTE';
+    content.appendChild(nature);
+    var note = document.createElement('p');
+    note.className = 'audio-nature-note';
+    note.textContent = data.natureNote || 'Natureza do conteúdo não informada; requer revisão docente.';
+    content.appendChild(note);
+    var provenanceParts = [data.sourceTitle, data.sourceOrganization, data.sourceVersion ? 'Versão: ' + data.sourceVersion : '', data.sourceUrl ? 'URL: ' + data.sourceUrl : '', data.accessedAt ? 'Acesso: ' + data.accessedAt : ''].filter(Boolean);
+    var provenance = document.createElement('p');
+    provenance.className = 'audio-provenance';
+    provenance.textContent = provenanceParts.length ? 'Proveniência: ' + provenanceParts.join(' · ') : 'Proveniência não informada; requer revisão docente.';
+    content.appendChild(provenance);
+
+    var controls = document.createElement('div');
+    controls.className = 'controls';
+    var player = document.createElement('audio');
+    player.controls = true;
+    player.preload = 'metadata';
+    player.setAttribute('aria-label', 'Player de áudio investigativo: ' + String(data.title));
+    var hasAudio = safeAudioUrl(data.audioUrl);
+    if (hasAudio) {
+      player.src = data.audioUrl;
+      currentPlayer = player;
+    } else {
+      player.controls = false;
+      player.setAttribute('aria-disabled', 'true');
+    }
+    controls.appendChild(player);
+    var back = document.createElement('button');
+    back.type = 'button'; back.className = 'audio-button'; back.textContent = '-10s'; back.setAttribute('aria-label', 'Voltar dez segundos');
+    back.disabled = !hasAudio;
+    back.addEventListener('click', function() { if (hasAudio) player.currentTime = Math.max(0, (Number(player.currentTime) || 0) - 10); });
+    controls.appendChild(back);
+    var forward = document.createElement('button');
+    forward.type = 'button'; forward.className = 'audio-button'; forward.textContent = '+10s'; forward.setAttribute('aria-label', 'Avançar dez segundos');
+    forward.disabled = !hasAudio;
+    forward.addEventListener('click', function() { if (hasAudio) player.currentTime = Math.min(Number(player.duration) || Infinity, (Number(player.currentTime) || 0) + 10); });
+    controls.appendChild(forward);
+    var close = document.createElement('button');
+    close.type = 'button'; close.className = 'audio-button'; close.textContent = 'FECHAR'; close.setAttribute('aria-label', 'Fechar player de áudio');
+    close.addEventListener('click', closePlayer);
+    controls.appendChild(close);
+    content.appendChild(controls);
+
+    if (!hasAudio) {
+      var unavailableNote = document.createElement('p');
+      unavailableNote.className = 'audio-source-note';
+      unavailableNote.textContent = 'Faixa de áudio indisponível para reprodução; a transcrição permanece disponível para consulta.';
+      content.appendChild(unavailableNote);
+    }
+    var playbackNote = document.createElement('p');
+    playbackNote.className = 'audio-source-note';
+    playbackNote.hidden = true;
+    content.appendChild(playbackNote);
+
+    var transcriptHeading = document.createElement('h4');
+    transcriptHeading.className = 'transcript-heading';
+    transcriptHeading.textContent = 'TRANSCRIÇÃO';
+    content.appendChild(transcriptHeading);
+    var transcript = document.createElement('p');
+    transcript.className = 'transcript';
+    content.appendChild(transcript);
+    renderTranscript(transcript, data.transcript, hasAudio ? player : null);
+    var listenStatus = document.createElement('p');
+    listenStatus.className = 'listen-status';
+    listenStatus.setAttribute('role', 'status');
+    listenStatus.setAttribute('aria-live', 'polite');
+    content.appendChild(listenStatus);
+    player.addEventListener('ended', function() { markListened(userId, evidenceId, listenStatus); });
+    player.addEventListener('error', function() {
+      if (!hasAudio) return;
+      playbackNote.textContent = 'Não foi possível reproduzir a faixa. A transcrição permanece disponível.';
+      playbackNote.hidden = false;
+    });
+
+    setState('ready');
+    try { close.focus(); } catch (e) {}
+    if (!data.transcript && window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(response) { if (serial === requestSerial && response && response.ok && response.data) renderTranscript(transcript, response.data.transcript, hasAudio ? player : null); })
+        .withFailureHandler(function() {})
+        .getAudioTranscript(userId, evidenceId);
+    }
+  }
+
+  function loadAudio(evidenceId) {
+    var id = String(evidenceId || '');
+    if (!id) { currentEvidenceId = ''; showError('Áudio inválido.'); return; }
+    currentEvidenceId = id;
+    var serial = ++requestSerial;
+    var userId = restoreUserId();
+    clearPlayer();
+    listenedSent = false;
+    root.hidden = false;
+    setState('loading');
+    if (content) content.textContent = 'Consultando a faixa…';
+    if (!userId) { showError('Sua sessão não está ativa. Entre novamente para consultar o áudio.'); return; }
+    if (!window.google || !google.script || !google.script.run) { showError('Servidor indisponível. O áudio não foi sincronizado.'); return; }
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (serial !== requestSerial) return;
+        if (!response || !response.ok) { showError(response && response.error && response.error.message || 'Não foi possível carregar o áudio.'); return; }
+        renderAudio(response.data, id, userId, serial);
+      })
+      .withFailureHandler(function() { if (serial === requestSerial) showError('Falha de sincronização. Tente novamente.'); })
+      .getAudioMetadata(userId, id);
+  }
+
+  if (retry) retry.addEventListener('click', function() { loadAudio(currentEvidenceId); });
+  window.addEventListener('audio:open', function(event) {
+    var detail = event && event.detail;
+    var id = detail && typeof detail === 'object' ? detail.id : detail;
+    lastFocusedElement = document.activeElement;
+    loadAudio(id);
+  });
+  setState('empty');
+}());</script>

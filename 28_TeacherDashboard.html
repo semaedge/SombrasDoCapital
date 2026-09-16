@@ -1,0 +1,1353 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 28_TeacherDashboard.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Painel docente com indicadores agregados e estados operacionais
+
+  PRINCIPAIS FUNCIONALIDADES
+  Painel do professor.
+
+  INTEGRAÇÕES
+  Visão de turmas, progresso, escolhas e competências.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Painel conectado ao serviço docente, com síntese agregada de evidências formativas,
+  filtro por turma/ano sem reload, exportação CSV e orientação em lote com estados
+  acessíveis. Não é ranking nem nota automática; validação docente individual permanece necessária.
+-->
+<section data-component="28_TeacherDashboard" aria-labelledby="teacher-dashboard-heading" aria-describedby="teacher-dashboard-description" aria-busy="false">
+  <div class="teacher-dashboard-container">
+    <!-- Barra Superior: Título, Filtro por Turma e Ação de Exportação -->
+    <header class="dashboard-header">
+      <div class="header-titles">
+        <span class="meta-tag">[ GESTÃO PEDAGÓGICA // VISÃO DOCENTE ]</span>
+        <h2 id="teacher-dashboard-heading">Painel de Desempenho da Turma</h2>
+        <p id="teacher-dashboard-description" class="sr-only">Indicadores agregados para apoiar a revisão docente. Os dados não formam ranking nem nota automática.</p>
+      </div>
+
+      <div class="header-controls">
+        <!-- 1. Seletor de Visualização (Prompt 80.1) -->
+        <div class="filter-wrapper">
+          <label for="view-type-select" class="sr-only">Tipo de visualização</label>
+          <select id="view-type-select" class="view-select" aria-label="Tipo de visualização" aria-controls="analytics-embed-container">
+            <option value="decisions">📊 Gráfico de Decisões</option>
+            <option value="bncc">🎯 Quadro de Competências BNCC</option>
+          </select>
+        </div>
+
+        <!-- Filtro Rápido por Turma/Ano sem Recarregar a Tela -->
+        <div class="filter-wrapper">
+          <label for="class-filter-select" class="sr-only">Filtrar por turma ou ano letivo</label>
+        <select id="class-filter-select" class="class-select" aria-label="Filtrar por turma ou ano" aria-controls="dashboard-main-content" disabled>
+            <option value="all">Turmas não sincronizadas</option>
+          </select>
+        </div>
+
+        <!-- Botão Exportar CSV da Turma (Prompt 80.2) -->
+        <button type="button" class="btn-export-csv" id="btn-export-csv" title="Exportar dados da turma para planilha">
+          <span aria-hidden="true">📥</span> <span id="export-csv-label">Exportar Relatório Geral</span>
+        </button>
+
+        <!-- Botão Devolutiva em Lote (Prompt 80.3) -->
+        <button type="button" class="btn-batch-feedback" id="btn-batch-feedback" title="Registrar orientação geral para a turma selecionada" disabled>
+          <span aria-hidden="true">💬</span> <span id="batch-feedback-label">Orientação geral da turma</span>
+        </button>
+      </div>
+    </header>
+
+    <p data-state="loading" id="dashboard-loading" class="dashboard-msg" role="status" aria-live="polite" aria-atomic="true">Carregando indicadores consolidados da turma…</p>
+    <p data-state="error" id="dashboard-error" class="dashboard-msg error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível carregar os dados das turmas.</p>
+    <p id="dashboard-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+
+    <div id="dashboard-main-content" hidden aria-busy="false">
+      <p class="teacher-scope-note"><strong>VISÃO AGREGADA:</strong> este painel mostra cobertura de indícios por dimensão, não compara estudantes, não cria ranking e não substitui devolutiva individual. Selecione uma turma antes de registrar uma orientação geral.</p>
+
+      <!-- 1. Cards de Resumo no Topo -->
+      <div class="summary-cards-grid">
+        <!-- Card 1: Taxa de Conclusão -->
+        <div class="summary-card" id="card-completion">
+          <div class="card-meta">
+            <span class="card-tag">FLUXO DE APRENDIZAGEM</span>
+            <span class="card-icon" aria-hidden="true">📈</span>
+          </div>
+          <h3 class="card-label">Estudantes com percurso iniciado</h3>
+          <strong class="card-value" id="val-completion" aria-live="polite">—</strong>
+          <p class="card-subtext" id="sub-completion">Apenas contagem agregada; não é ranking</p>
+        </div>
+
+        <!-- Card 2: Média de Rigor Documental -->
+        <div class="summary-card" id="card-rigor">
+          <div class="card-meta">
+          <span class="card-tag">EVIDÊNCIA FORMATIVA</span>
+            <span class="card-icon" aria-hidden="true">🎯</span>
+          </div>
+          <h3 class="card-label">Indícios formativos registrados</h3>
+          <strong class="card-value val-cyan" id="val-rigor" aria-live="polite">—</strong>
+          <p class="card-subtext" id="sub-rigor">Dimensões observáveis no percurso</p>
+        </div>
+
+        <!-- Card 3: Tempo Médio por Episódio -->
+        <div class="summary-card" id="card-time">
+          <div class="card-meta">
+          <span class="card-tag">REVISÃO DOCENTE</span>
+            <span class="card-icon" aria-hidden="true">⏱</span>
+          </div>
+          <h3 class="card-label">Itens na fila de revisão</h3>
+          <strong class="card-value val-amber" id="val-time" aria-live="polite">—</strong>
+          <p class="card-subtext" id="sub-time">Revisão humana pendente; tempo não pontua</p>
+        </div>
+      </div>
+
+      <!-- 2. Visualizações Alternáveis (Prompt 80.1) -->
+      <div class="analytics-embed-wrapper" id="analytics-embed-container">
+        <!-- Visão: Gráfico de Decisões -->
+        <div id="view-decisions" class="analytics-view">
+          <?!= HtmlService.createHtmlOutputFromFile('29_ClassAnalytics').getContent(); ?>
+        </div>
+
+        <!-- Visão: Quadro de Competências BNCC -->
+        <div id="view-bncc" class="analytics-view" hidden>
+          <?!= HtmlService.createHtmlOutputFromFile('31_BNCCMap').getContent(); ?>
+        </div>
+      </div>
+
+      <!-- 3. Mapa agregado de evidências formativas -->
+      <section class="formative-summary-card" aria-labelledby="formative-summary-title">
+        <header class="formative-summary-header">
+          <div>
+            <span class="meta-tag">[ MEDIAÇÃO // EVIDÊNCIAS DE MÉTODO ]</span>
+            <h3 id="formative-summary-title">Mapa formativo da turma</h3>
+          </div>
+          <span class="formative-summary-status">SEM RANKING</span>
+        </header>
+        <p class="formative-summary-desc">A cobertura indica quantos estudantes têm um indício registrado em cada dimensão. O professor revisa contexto, produção e próximos passos; nenhum percentual é nota.</p>
+        <ul id="formative-indicator-list" class="formative-indicator-list" aria-live="polite" aria-atomic="true"></ul>
+      </section>
+    </div>
+  </div>
+
+  <!-- Modal de Devolutiva em Lote (Prompt 80.3) -->
+  <div class="modal-overlay" id="feedback-modal-overlay" hidden>
+    <div class="feedback-modal" role="dialog" aria-labelledby="feedback-modal-title" aria-describedby="feedback-modal-description" aria-modal="true">
+      <header class="modal-header">
+        <h3 id="feedback-modal-title">Devolutiva Formativa para a Turma</h3>
+        <button type="button" class="modal-close" id="btn-close-modal" aria-label="Fechar modal">✕</button>
+      </header>
+
+      <div class="modal-body">
+        <p class="modal-description" id="feedback-modal-description">
+          Registre uma orientação geral para a turma selecionada. Ela será anexada à aba <strong>Reports</strong>, sem sobrescrever trabalhos ou devolutivas individuais, e não será enviada entre turmas.
+        </p>
+
+        <form id="batch-feedback-form" aria-describedby="feedback-modal-description batch-feedback-hint" aria-busy="false">
+          <div class="form-group">
+            <label for="batch-feedback-text" class="form-label">
+              Comentário Geral para a Turma
+            </label>
+            <textarea 
+              id="batch-feedback-text" 
+              name="feedbackText" 
+              rows="6" 
+              maxlength="2000"
+              placeholder="Ex: Parabéns pela dedicação demonstrada! Observei que a maioria priorizou a checagem documental, o que é essencial no jornalismo investigativo..."
+              required
+            ></textarea>
+            <small class="form-hint" id="batch-feedback-hint">
+              <span id="char-count" aria-live="polite" aria-atomic="true">0</span> / 2000 caracteres
+            </small>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" id="btn-cancel-feedback">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-primary" id="btn-submit-feedback">
+              <span aria-hidden="true">💬</span> Enviar Devolutiva para Toda a Turma
+            </button>
+          </div>
+        </form>
+
+        <p data-state="sending" id="feedback-status-sending" class="modal-status" hidden role="status" aria-live="polite" aria-atomic="true">
+          Enviando devolutiva para todos os alunos da turma...
+        </p>
+        <p data-state="success" id="feedback-status-success" class="modal-status success" hidden role="status" aria-live="polite" aria-atomic="true">
+          ✓ Devolutiva enviada com sucesso para todos os alunos!
+        </p>
+        <p data-state="error" id="feedback-status-error" class="modal-status error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">
+          Não foi possível enviar a devolutiva. Tente novamente.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="28_TeacherDashboard"] {
+    --td-bg: var(--color-deep-shadow);
+    --td-panel: var(--color-dark-graphite);
+    --td-card: #101618;
+    --td-line: #293539;
+    --td-cyan: var(--color-neon-cyan);
+    --td-amber: var(--color-warning-amber);
+    --td-ink: var(--color-light-gray);
+    --td-muted: var(--color-medium-gray);
+    padding: 24px;
+    color: var(--td-ink);
+    background: var(--td-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="28_TeacherDashboard"] *,
+  [data-component="28_TeacherDashboard"] *::before,
+  [data-component="28_TeacherDashboard"] *::after { box-sizing: border-box; }
+
+  [data-component="28_TeacherDashboard"] .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  [data-component="28_TeacherDashboard"] .teacher-dashboard-container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  [data-component="28_TeacherDashboard"] .dashboard-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--td-line);
+  }
+
+  [data-component="28_TeacherDashboard"] .meta-tag {
+    color: var(--td-amber);
+    font-size: 10px;
+    letter-spacing: .14em;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  [data-component="28_TeacherDashboard"] h2 {
+    margin: 0;
+    font: 700 clamp(22px, 3.5vw, 28px) Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="28_TeacherDashboard"] .header-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Filtro de Turma / Ano */
+  [data-component="28_TeacherDashboard"] .class-select {
+    padding: 10px 14px;
+    background: var(--td-card);
+    border: 1px solid var(--td-cyan);
+    color: #ffffff;
+    font: 700 11px "IBM Plex Mono", monospace;
+    border-radius: 3px;
+    cursor: pointer;
+    outline: none;
+    transition: all .15s ease;
+  }
+
+  [data-component="28_TeacherDashboard"] .class-select:focus {
+    border-color: var(--td-amber);
+    box-shadow: 0 0 10px rgba(240, 179, 91, 0.3);
+  }
+
+  [data-component="28_TeacherDashboard"] .class-select:focus-visible,
+  [data-component="28_TeacherDashboard"] .view-select:focus-visible {
+    outline: 2px solid var(--td-amber);
+    outline-offset: 2px;
+  }
+
+  /* Seletor de Visualização */
+  [data-component="28_TeacherDashboard"] .view-select {
+    padding: 10px 14px;
+    background: var(--td-card);
+    border: 1px solid var(--td-line);
+    color: #ffffff;
+    font: 700 11px "IBM Plex Mono", monospace;
+    border-radius: 3px;
+    cursor: pointer;
+    outline: none;
+    transition: all .15s ease;
+  }
+
+  [data-component="28_TeacherDashboard"] .view-select:focus {
+    border-color: var(--td-cyan);
+    box-shadow: 0 0 8px rgba(104, 212, 208, 0.3);
+  }
+
+  /* Botões de Ação */
+  [data-component="28_TeacherDashboard"] .btn-export-csv,
+  [data-component="28_TeacherDashboard"] .btn-batch-feedback {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: transparent;
+    color: var(--td-amber);
+    border: 1px solid var(--td-amber);
+    font: 700 11px "IBM Plex Mono", monospace;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-batch-feedback {
+    color: var(--td-cyan);
+    border-color: var(--td-cyan);
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-export-csv:hover,
+  [data-component="28_TeacherDashboard"] .btn-export-csv:focus-visible {
+    background: rgba(240, 179, 91, 0.15);
+    outline: 2px solid var(--td-cyan);
+    outline-offset: 1px;
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-batch-feedback:hover,
+  [data-component="28_TeacherDashboard"] .btn-batch-feedback:focus-visible {
+    background: rgba(104, 212, 208, 0.15);
+    outline: 2px solid var(--td-amber);
+    outline-offset: 1px;
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-export-csv:disabled,
+  [data-component="28_TeacherDashboard"] .btn-batch-feedback:disabled {
+    cursor: wait;
+    opacity: .5;
+  }
+
+  [data-component="28_TeacherDashboard"] .dashboard-msg {
+    padding: 14px 18px;
+    background: var(--td-panel);
+    border-left: 3px solid var(--td-cyan);
+    font-size: 12px;
+  }
+
+  [data-component="28_TeacherDashboard"] .dashboard-msg.error {
+    border-left-color: var(--color-coral-red);
+    color: #f7a8a0;
+  }
+
+  [data-component="28_TeacherDashboard"] .teacher-scope-note {
+    margin: 0 0 22px;
+    padding: 11px 14px;
+    border-left: 3px solid var(--td-cyan);
+    background: var(--td-panel);
+    color: var(--td-muted);
+    font-size: 11px;
+    line-height: 1.55;
+  }
+
+  [data-component="28_TeacherDashboard"] .teacher-scope-note strong {
+    color: var(--td-cyan);
+    letter-spacing: .06em;
+  }
+
+  /* Cards de Resumo no Topo */
+  [data-component="28_TeacherDashboard"] .summary-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+
+  [data-component="28_TeacherDashboard"] .summary-card {
+    background: var(--td-panel);
+    border: 1px solid var(--td-line);
+    border-radius: 4px;
+    padding: 20px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    transition: transform .15s ease, border-color .15s ease;
+  }
+
+  [data-component="28_TeacherDashboard"] .summary-card:hover {
+    border-color: #3b4e54;
+    transform: translateY(-2px);
+  }
+
+  [data-component="28_TeacherDashboard"] .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  [data-component="28_TeacherDashboard"] .card-tag {
+    font-size: 9px;
+    letter-spacing: .12em;
+    color: var(--td-muted);
+  }
+
+  [data-component="28_TeacherDashboard"] .card-icon {
+    font-size: 14px;
+  }
+
+  [data-component="28_TeacherDashboard"] .card-label {
+    margin: 0 0 10px;
+    font: 700 14px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="28_TeacherDashboard"] .card-value {
+    display: block;
+    font-size: clamp(28px, 4vw, 36px);
+    font-weight: 700;
+    line-height: 1.1;
+    color: #ffffff;
+    font-family: "IBM Plex Mono", monospace;
+    margin-bottom: 6px;
+  }
+
+  [data-component="28_TeacherDashboard"] .val-cyan {
+    color: var(--td-cyan);
+  }
+
+  [data-component="28_TeacherDashboard"] .val-amber {
+    color: var(--td-amber);
+  }
+
+  [data-component="28_TeacherDashboard"] .card-subtext {
+    margin: 0;
+    font-size: 11px;
+    color: var(--td-muted);
+    line-height: 1.4;
+  }
+
+  [data-component="28_TeacherDashboard"] .analytics-embed-wrapper {
+    margin-top: 12px;
+  }
+
+  [data-component="28_TeacherDashboard"] .analytics-view {
+    animation: fadeIn 0.3s ease;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-summary-card {
+    margin-top: 20px;
+    padding: 22px;
+    background: var(--td-panel);
+    border: 1px solid var(--td-line);
+    border-radius: 4px;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-summary-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-summary-header h3 {
+    margin: 0;
+    font: 700 18px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-summary-status {
+    padding: 4px 7px;
+    border: 1px solid var(--td-amber);
+    color: var(--td-amber);
+    font-size: 9px;
+    letter-spacing: .08em;
+    white-space: nowrap;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-summary-desc {
+    margin: 0 0 16px;
+    color: var(--td-muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-indicator-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-indicator {
+    padding: 12px;
+    border: 1px solid var(--td-line);
+    background: var(--td-card);
+    border-radius: 3px;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-indicator-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: baseline;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-indicator-label {
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-indicator-value {
+    color: var(--td-cyan);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  [data-component="28_TeacherDashboard"] .formative-indicator-description {
+    margin: 6px 0 0;
+    color: var(--td-muted);
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-batch-feedback:disabled {
+    cursor: not-allowed;
+    opacity: .48;
+    border-color: var(--td-line);
+    color: var(--td-muted);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Modal de Devolutiva em Lote */
+  [data-component="28_TeacherDashboard"] .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  [data-component="28_TeacherDashboard"] .feedback-modal {
+    background: var(--td-panel);
+    border: 2px solid var(--td-cyan);
+    border-radius: 6px;
+    max-width: 640px;
+    width: 100%;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--td-line);
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-header h3 {
+    margin: 0;
+    font: 700 18px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--td-muted);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color .15s ease;
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-close:hover,
+  [data-component="28_TeacherDashboard"] .modal-close:focus {
+    color: var(--td-cyan);
+    outline: 2px solid var(--td-cyan);
+    outline-offset: 2px;
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-body {
+    padding: 24px;
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-description {
+    margin: 0 0 20px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--td-muted);
+  }
+
+  [data-component="28_TeacherDashboard"] .form-group {
+    margin-bottom: 20px;
+  }
+
+  [data-component="28_TeacherDashboard"] .form-label {
+    display: block;
+    margin-bottom: 8px;
+    font: 700 12px "IBM Plex Mono", monospace;
+    color: var(--td-cyan);
+    letter-spacing: .05em;
+  }
+
+  [data-component="28_TeacherDashboard"] textarea {
+    width: 100%;
+    padding: 12px;
+    background: var(--td-card);
+    border: 1px solid var(--td-line);
+    color: #ffffff;
+    font: 400 13px "IBM Plex Mono", monospace;
+    line-height: 1.6;
+    border-radius: 4px;
+    resize: vertical;
+    outline: none;
+    transition: border-color .15s ease;
+    box-sizing: border-box;
+  }
+
+  [data-component="28_TeacherDashboard"] textarea:focus {
+    border-color: var(--td-cyan);
+    box-shadow: 0 0 0 3px rgba(104, 212, 208, 0.15);
+  }
+
+  [data-component="28_TeacherDashboard"] textarea[aria-invalid="true"] {
+    border-color: var(--color-coral-red);
+  }
+
+  [data-component="28_TeacherDashboard"] .form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--td-muted);
+  }
+
+  [data-component="28_TeacherDashboard"] .form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-secondary,
+  [data-component="28_TeacherDashboard"] .btn-primary {
+    padding: 12px 20px;
+    font: 700 12px "IBM Plex Mono", monospace;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .15s ease;
+    border: none;
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-secondary {
+    background: transparent;
+    color: var(--td-muted);
+    border: 1px solid var(--td-line);
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-secondary:hover,
+  [data-component="28_TeacherDashboard"] .btn-secondary:focus {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--td-muted);
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-secondary:focus-visible,
+  [data-component="28_TeacherDashboard"] .btn-primary:focus-visible,
+  [data-component="28_TeacherDashboard"] .modal-close:focus-visible {
+    outline: 2px solid var(--td-amber);
+    outline-offset: 3px;
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-primary {
+    background: var(--td-cyan);
+    color: var(--color-deep-shadow);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  [data-component="28_TeacherDashboard"] .btn-primary:hover,
+  [data-component="28_TeacherDashboard"] .btn-primary:focus {
+    background: #7fe0dc;
+    box-shadow: 0 0 16px rgba(104, 212, 208, 0.4);
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-status {
+    margin: 16px 0 0;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-status[data-state="sending"] {
+    background: rgba(104, 212, 208, 0.1);
+    border-left: 3px solid var(--td-cyan);
+    color: var(--td-cyan);
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-status.success {
+    background: rgba(104, 212, 208, 0.15);
+    border-left: 3px solid var(--td-cyan);
+    color: var(--td-cyan);
+  }
+
+  [data-component="28_TeacherDashboard"] .modal-status.error {
+    background: rgba(226, 116, 104, 0.15);
+    border-left: 3px solid var(--color-coral-red);
+    color: #f7a8a0;
+  }
+
+  /* Responsividade */
+  @media (max-width: 768px) {
+    [data-component="28_TeacherDashboard"] .dashboard-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    [data-component="28_TeacherDashboard"] .header-controls {
+      flex-direction: column;
+    }
+
+    [data-component="28_TeacherDashboard"] .form-actions {
+      flex-direction: column;
+    }
+
+    [data-component="28_TeacherDashboard"] .btn-secondary,
+    [data-component="28_TeacherDashboard"] .btn-primary {
+      width: 100%;
+      justify-content: center;
+    }
+
+    [data-component="28_TeacherDashboard"] .formative-summary-header {
+      flex-direction: column;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="28_TeacherDashboard"] .analytics-view,
+    [data-component="28_TeacherDashboard"] .modal-overlay,
+    [data-component="28_TeacherDashboard"] .feedback-modal {
+      animation: none;
+    }
+    [data-component="28_TeacherDashboard"] * {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="28_TeacherDashboard"]');
+  if (!root) return;
+
+  var loading = root.querySelector('[data-state="loading"]');
+  var error = root.querySelector('[data-state="error"]');
+  var announcement = root.querySelector('#dashboard-announcement');
+  var mainContent = root.querySelector('#dashboard-main-content');
+
+  var valCompletion = root.querySelector('#val-completion');
+  var subCompletion = root.querySelector('#sub-completion');
+  var valRigor = root.querySelector('#val-rigor');
+  var subRigor = root.querySelector('#sub-rigor');
+  var valTime = root.querySelector('#val-time');
+  var subTime = root.querySelector('#sub-time');
+  var formativeIndicatorList = root.querySelector('#formative-indicator-list');
+
+  var viewTypeSelect = root.querySelector('#view-type-select');
+  var viewDecisions = root.querySelector('#view-decisions');
+  var viewBncc = root.querySelector('#view-bncc');
+
+  var filterSelect = root.querySelector('#class-filter-select');
+  var btnExport = root.querySelector('#btn-export-csv');
+  var exportLabel = root.querySelector('#export-csv-label');
+  var btnBatchFeedback = root.querySelector('#btn-batch-feedback');
+
+  var modalOverlay = root.querySelector('#feedback-modal-overlay');
+  var btnCloseModal = root.querySelector('#btn-close-modal');
+  var btnCancelFeedback = root.querySelector('#btn-cancel-feedback');
+  var feedbackForm = root.querySelector('#batch-feedback-form');
+  var feedbackTextarea = root.querySelector('#batch-feedback-text');
+  var charCount = root.querySelector('#char-count');
+
+  var statusSending = root.querySelector('[data-state="sending"]');
+  var statusSuccess = root.querySelector('[data-state="success"]');
+  var statusError = root.querySelector('.modal-status.error');
+
+  var currentClassId = 'all';
+  var currentData = null;
+  var lastModalFocus = null;
+  var dashboardRequestSerial = 0;
+  var exportBusy = false;
+  var feedbackBusy = false;
+  var feedbackSent = false;
+  var feedbackCloseTimer = null;
+  var defaultDashboardError = 'Servidor indisponível. Os dados da turma não foram sincronizados.';
+  var defaultFeedbackError = 'Não foi possível enviar a devolutiva. Tente novamente.';
+
+  function hasScriptRunner() {
+    return Boolean(window.google && window.google.script && window.google.script.run);
+  }
+
+  function announce(message) {
+    if (announcement) announcement.textContent = message || '';
+  }
+
+  function setDashboardBusy(busy, message) {
+    var isBusy = Boolean(busy);
+    root.setAttribute('aria-busy', String(isBusy));
+    if (mainContent) mainContent.setAttribute('aria-busy', String(isBusy));
+    if (loading) {
+      if (message) loading.textContent = message;
+      loading.hidden = !isBusy;
+    }
+    if (filterSelect) filterSelect.disabled = isBusy || !currentData || !Array.isArray(currentData.classes) || !currentData.classes.length;
+    if (btnExport) btnExport.disabled = isBusy || exportBusy || !currentData;
+    updateBatchFeedbackAvailability();
+  }
+
+  function safeClassId(value) {
+    return String(value == null ? '' : value).trim().slice(0, 160);
+  }
+
+  function safeNumber(value, fallback) {
+    var number = Number(value);
+    return isFinite(number) && !isNaN(number) ? number : fallback;
+  }
+
+  function clampPercentage(value) {
+    var number = safeNumber(value, null);
+    return number == null ? null : Math.max(0, Math.min(100, Math.round(number)));
+  }
+
+  function clearDashboardError() {
+    if (!error) return;
+    error.textContent = '';
+    error.hidden = true;
+  }
+
+  function showDashboardUnavailable(message, moveFocus) {
+    setDashboardBusy(false);
+    if (mainContent) mainContent.hidden = true;
+    if (error) {
+      error.textContent = message || defaultDashboardError;
+      error.hidden = false;
+      if (moveFocus) {
+        try { error.focus(); } catch (ignored) {}
+      }
+    }
+    announce(message || defaultDashboardError);
+  }
+
+  // 1. Alternância de Visualizações (Prompt 80.1)
+  if (viewTypeSelect) {
+    viewTypeSelect.addEventListener('change', function() {
+      var selectedView = viewTypeSelect.value;
+      if (selectedView === 'decisions') {
+        if (viewDecisions) viewDecisions.hidden = false;
+        if (viewBncc) viewBncc.hidden = true;
+        announce('Visualização alterada para gráfico de decisões.');
+      } else if (selectedView === 'bncc') {
+        if (viewDecisions) viewDecisions.hidden = true;
+        if (viewBncc) viewBncc.hidden = false;
+        announce('Visualização alterada para quadro de competências BNCC.');
+      } else {
+        viewTypeSelect.value = 'decisions';
+        if (viewDecisions) viewDecisions.hidden = false;
+        if (viewBncc) viewBncc.hidden = true;
+      }
+    });
+  }
+
+  function renderDashboard(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      showDashboardUnavailable('Não foi possível carregar os dados confirmados da turma.', true);
+      return;
+    }
+    currentData = data;
+
+    var completionRate = clampPercentage(data.completionRate);
+    var studentsCount = safeNumber(data.studentsCount, null);
+    var formativeIndicators = Array.isArray(data.formativeIndicators) ? data.formativeIndicators : [];
+    var recordedCount = formativeIndicators.reduce(function(total, item) {
+      var count = safeNumber(item && item.studentsWithEvidence, 0);
+      return total + Math.max(0, count);
+    }, 0);
+    var reviewQueueCount = safeNumber(data.reviewQueueCount, null);
+    if (valCompletion) valCompletion.textContent = completionRate == null ? '—' : completionRate + '%';
+    if (subCompletion) {
+      if (completionRate == null) {
+        subCompletion.textContent = studentsCount == null ? 'Cobertura indisponível' : studentsCount + ' estudantes na turma';
+      } else {
+        subCompletion.textContent = (studentsCount == null ? 'Percurso iniciado' : studentsCount + ' estudantes na turma') + '; não é ranking';
+      }
+    }
+    if (valRigor) valRigor.textContent = String(Math.round(recordedCount));
+    if (subRigor) subRigor.textContent = formativeIndicators.length ? 'Registros agregados, sem nota' : 'Nenhum indício confirmado';
+    if (valTime) valTime.textContent = reviewQueueCount == null ? '—' : String(Math.max(0, Math.round(reviewQueueCount)));
+    if (subTime) subTime.textContent = 'Dimensões aguardando revisão humana';
+
+    renderFormativeIndicators(formativeIndicators);
+
+    var classes = [];
+    var seenClassIds = {};
+    (Array.isArray(data.classes) ? data.classes : []).forEach(function(item) {
+      var id = safeClassId(item && item.id);
+      if (!id || seenClassIds[id]) return;
+      seenClassIds[id] = true;
+      classes.push({
+        id: id,
+        name: String(item && (item.name || item.title || id) || id).trim().slice(0, 160),
+        year: String(item && item.year || '').trim().slice(0, 20)
+      });
+    });
+    var requestedClassId = safeClassId(data.activeClassId || currentClassId || 'all');
+    currentClassId = requestedClassId && (requestedClassId === 'all' || seenClassIds[requestedClassId]) ? requestedClassId : 'all';
+    renderClassFilter(classes);
+
+    // Dispara evento para o gráfico em 29_ClassAnalytics
+    window.dispatchEvent(new CustomEvent('analytics:update', {
+      detail: {
+        criticalChoices: data.criticalChoices,
+        decisionsCount: data.decisionsCount
+      }
+    }));
+
+    if (mainContent) mainContent.hidden = false;
+    setDashboardBusy(false);
+    announce(currentClassId === 'all' ? 'Indicadores consolidados de todas as turmas carregados.' : 'Indicadores da turma selecionada carregados.');
+  }
+
+  function renderClassFilter(classes) {
+    if (!filterSelect) return;
+    filterSelect.textContent = '';
+    var allOption = document.createElement('option');
+    allOption.value = 'all';
+    allOption.textContent = classes.length ? 'Todas as turmas' : 'Turmas não sincronizadas';
+    filterSelect.appendChild(allOption);
+    classes.forEach(function(item) {
+      var option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name + (item.year ? ' (' + item.year + ')' : '');
+      filterSelect.appendChild(option);
+    });
+    filterSelect.value = currentClassId;
+    filterSelect.disabled = !classes.length;
+    filterSelect.setAttribute('aria-label', classes.length ? 'Filtrar por turma ou ano' : 'Nenhuma turma disponível');
+  }
+
+  function renderFormativeIndicators(items) {
+    if (!formativeIndicatorList) return;
+    formativeIndicatorList.textContent = '';
+    if (!items.length) {
+      var empty = document.createElement('li');
+      empty.className = 'formative-indicator';
+      empty.textContent = 'Nenhum indício formativo confirmado para esta turma.';
+      formativeIndicatorList.appendChild(empty);
+      return;
+    }
+    items.forEach(function(item) {
+      if (!item || typeof item !== 'object' || !item.label) return;
+      var row = document.createElement('li');
+      row.className = 'formative-indicator';
+      var head = document.createElement('div');
+      head.className = 'formative-indicator-head';
+      var label = document.createElement('span');
+      label.className = 'formative-indicator-label';
+      label.textContent = item.label;
+      var value = document.createElement('span');
+      value.className = 'formative-indicator-value';
+      var percentageNumber = clampPercentage(item.coveragePercentage);
+      var percentage = percentageNumber == null ? '—' : percentageNumber + '%';
+      var withEvidence = Math.max(0, Math.round(safeNumber(item.studentsWithEvidence, 0)));
+      var totalStudents = Math.max(0, Math.round(safeNumber(item.studentsCount, 0)));
+      value.textContent = percentage + ' · ' + withEvidence + '/' + totalStudents;
+      head.appendChild(label);
+      head.appendChild(value);
+      row.appendChild(head);
+      var description = document.createElement('p');
+      description.className = 'formative-indicator-description';
+      description.textContent = (item.description || 'Indício agregado do percurso.') + ' Revisão docente necessária.';
+      row.appendChild(description);
+      formativeIndicatorList.appendChild(row);
+    });
+  }
+
+  // Alternância rápida de turmas sem recarregar a tela
+  if (filterSelect) {
+    filterSelect.addEventListener('change', function() {
+      var nextClassId = safeClassId(filterSelect.value) || 'all';
+      var available = nextClassId === 'all' || (currentData && Array.isArray(currentData.classes) && currentData.classes.some(function(item) {
+        return safeClassId(item && item.id) === nextClassId;
+      }));
+      currentClassId = available ? nextClassId : 'all';
+      currentData = null;
+      updateBatchFeedbackAvailability();
+      loadDashboard(currentClassId);
+    });
+  }
+
+  function updateBatchFeedbackAvailability() {
+    if (!btnBatchFeedback) return;
+    var enabled = Boolean(!feedbackBusy && currentData && currentClassId && currentClassId !== 'all');
+    btnBatchFeedback.disabled = !enabled;
+    btnBatchFeedback.title = enabled
+      ? 'Registrar orientação geral para a turma selecionada (não substitui devolutivas individuais)'
+      : 'Selecione uma turma específica para evitar mistura de turmas';
+  }
+
+  // 2. Exportar CSV da Turma (Prompt 80.2) - Integração com exportClassData
+  function setExportBusy(busy) {
+    exportBusy = Boolean(busy);
+    if (btnExport) {
+      btnExport.disabled = exportBusy || root.getAttribute('aria-busy') === 'true';
+      btnExport.setAttribute('aria-busy', String(exportBusy));
+      btnExport.title = exportBusy ? 'Gerando o relatório da turma…' : 'Exportar dados da turma para planilha';
+    }
+    if (exportLabel) exportLabel.textContent = exportBusy ? 'Gerando relatório…' : 'Exportar Relatório Geral';
+  }
+
+  function showActionError(message) {
+    if (error) {
+      error.textContent = message;
+      error.hidden = false;
+    }
+    announce(message);
+  }
+
+  if (btnExport) {
+    btnExport.addEventListener('click', function() {
+      if (exportBusy || !currentData) return;
+      clearDashboardError();
+      var classIdSnapshot = currentClassId;
+      setExportBusy(true);
+
+      if (hasScriptRunner()) {
+        window.google.script.run
+          .withSuccessHandler(function(response) {
+            setExportBusy(false);
+            if (!response || !response.ok) {
+              showActionError('Não foi possível exportar os dados confirmados da turma.');
+              return;
+            }
+
+            if (!response.data || typeof response.data.content !== 'string' || !response.data.content.trim()) {
+              showActionError('Não há dados confirmados para exportar nesta seleção.');
+              return;
+            }
+            var filenameId = classIdSnapshot === 'all' ? 'todas' : classIdSnapshot.replace(/[^a-z0-9_-]+/gi, '_').slice(0, 48);
+            downloadCsv(response.data.content, 'relatorio_turma_' + (filenameId || 'selecionada') + '_sombras_capital.csv');
+            announce('Relatório CSV gerado para a seleção atual.');
+          })
+          .withFailureHandler(function() {
+            setExportBusy(false);
+            showActionError('Não foi possível exportar os dados confirmados. Tente novamente.');
+          })
+          .exportClassData(window.currentUser || null, classIdSnapshot === 'all' ? '' : classIdSnapshot);
+      } else {
+        setExportBusy(false);
+        showActionError('Servidor indisponível. A exportação exige dados confirmados.');
+      }
+    });
+  }
+
+  function downloadCsv(csvContent, filename) {
+    var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 0);
+  }
+
+  // 3. Modal de Devolutiva em Lote (Prompt 80.3)
+  if (btnBatchFeedback) {
+    btnBatchFeedback.addEventListener('click', function() {
+      openFeedbackModal();
+    });
+  }
+
+  if (btnCloseModal) {
+    btnCloseModal.addEventListener('click', function() {
+      closeFeedbackModal();
+    });
+  }
+
+  if (btnCancelFeedback) {
+    btnCancelFeedback.addEventListener('click', function() {
+      closeFeedbackModal();
+    });
+  }
+
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', function(e) {
+      if (e.target === modalOverlay) {
+        closeFeedbackModal();
+      }
+    });
+  }
+
+  // Contador de caracteres
+  if (feedbackTextarea && charCount) {
+    feedbackTextarea.addEventListener('input', function() {
+      updateFeedbackCount();
+      feedbackTextarea.removeAttribute('aria-invalid');
+      if (statusError) statusError.hidden = true;
+    });
+  }
+
+  if (feedbackForm) {
+    feedbackForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      submitBatchFeedback();
+    });
+  }
+
+  function openFeedbackModal() {
+    if (!currentData || !currentClassId || currentClassId === 'all') {
+      showActionError('Selecione uma turma específica antes de registrar uma orientação.');
+      return;
+    }
+    resetFeedbackModal();
+    lastModalFocus = document.activeElement;
+    if (modalOverlay) modalOverlay.hidden = false;
+    if (feedbackTextarea) feedbackTextarea.focus();
+    announce('Diálogo de orientação geral aberto para a turma selecionada.');
+  }
+
+  // Mantém o teclado dentro do diálogo enquanto ele estiver aberto.
+  if (modalOverlay) {
+    modalOverlay.addEventListener('keydown', function(e) {
+      if (e.key !== 'Tab') return;
+      var focusable = modalOverlay.querySelectorAll('button:not([disabled]):not([hidden]), input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), textarea:not([disabled]):not([hidden]), [href]:not([hidden]), [tabindex]:not([tabindex="-1"]):not([hidden])');
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !modalOverlay.contains(document.activeElement))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || !modalOverlay.contains(document.activeElement))) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+  }
+
+  function closeFeedbackModal() {
+    if (feedbackBusy) return;
+    if (modalOverlay) modalOverlay.hidden = true;
+    if (feedbackCloseTimer) {
+      clearTimeout(feedbackCloseTimer);
+      feedbackCloseTimer = null;
+    }
+    resetFeedbackModal();
+    if (lastModalFocus && document.contains(lastModalFocus) && typeof lastModalFocus.focus === 'function') {
+      try { lastModalFocus.focus(); } catch (ignored) {}
+    }
+    lastModalFocus = null;
+    announce('Diálogo de orientação geral fechado.');
+  }
+
+  function updateFeedbackCount() {
+    if (charCount && feedbackTextarea) charCount.textContent = String(feedbackTextarea.value.length);
+  }
+
+  function clearFeedbackStatus() {
+    if (statusSending) statusSending.hidden = true;
+    if (statusSuccess) {
+      statusSuccess.textContent = '✓ Devolutiva enviada com sucesso para a turma selecionada.';
+      statusSuccess.hidden = true;
+    }
+    if (statusError) {
+      statusError.textContent = defaultFeedbackError;
+      statusError.hidden = true;
+    }
+  }
+
+  function setFeedbackBusy(busy) {
+    feedbackBusy = Boolean(busy);
+    if (feedbackForm) feedbackForm.setAttribute('aria-busy', String(feedbackBusy));
+    var submitBtn = root.querySelector('#btn-submit-feedback');
+    [feedbackTextarea, btnCancelFeedback, btnCloseModal].forEach(function(control) {
+      if (control) control.disabled = feedbackBusy;
+    });
+    if (submitBtn) submitBtn.disabled = feedbackBusy || feedbackSent;
+    if (statusSending) statusSending.hidden = !feedbackBusy;
+    updateBatchFeedbackAvailability();
+  }
+
+  function resetFeedbackModal() {
+    feedbackSent = false;
+    setFeedbackBusy(false);
+    if (feedbackForm) feedbackForm.reset();
+    if (feedbackTextarea) feedbackTextarea.removeAttribute('aria-invalid');
+    updateFeedbackCount();
+    clearFeedbackStatus();
+  }
+
+  function showFeedbackError(message, moveFocus) {
+    setFeedbackBusy(false);
+    if (statusSending) statusSending.hidden = true;
+    if (statusSuccess) statusSuccess.hidden = true;
+    if (statusError) {
+      statusError.textContent = message || defaultFeedbackError;
+      statusError.hidden = false;
+      if (moveFocus) {
+        try { statusError.focus(); } catch (ignored) {}
+      }
+    }
+    announce(message || defaultFeedbackError);
+  }
+
+  function submitBatchFeedback() {
+    if (feedbackBusy || feedbackSent) return;
+    if (!currentData || !currentClassId || currentClassId === 'all') {
+      showFeedbackError('Selecione uma turma específica; nenhuma orientação foi enviada.', true);
+      return;
+    }
+    var teacher = window.currentUser || null;
+    if (!teacher || String(teacher.role || '').trim().toLowerCase() !== 'teacher') {
+      showFeedbackError('Sessão docente indisponível. Entre novamente para continuar.', true);
+      return;
+    }
+    var feedbackText = feedbackTextarea ? feedbackTextarea.value.trim() : '';
+    if (!feedbackForm || !feedbackForm.reportValidity() || !feedbackText) {
+      if (feedbackTextarea) {
+        feedbackTextarea.setAttribute('aria-invalid', 'true');
+        feedbackTextarea.focus();
+      }
+      showFeedbackError('Escreva uma orientação antes de enviar.', false);
+      return;
+    }
+    if (!hasScriptRunner()) {
+      showFeedbackError('Servidor indisponível. A devolutiva não foi registrada.', true);
+      return;
+    }
+
+    clearFeedbackStatus();
+    setFeedbackBusy(true);
+    if (statusSending) statusSending.textContent = 'Enviando orientação para a turma selecionada…';
+    var classIdSnapshot = currentClassId;
+    window.google.script.run
+        .withSuccessHandler(function(response) {
+          if (!response || !response.ok) {
+            showFeedbackError(defaultFeedbackError, true);
+            return;
+          }
+          feedbackSent = true;
+          setFeedbackBusy(false);
+          if (statusSuccess) {
+            var count = safeNumber(response.data && response.data.studentsCount, null);
+            statusSuccess.textContent = count == null
+              ? '✓ Devolutiva enviada com sucesso para a turma selecionada.'
+              : '✓ Devolutiva enviada para ' + Math.max(0, Math.round(count)) + ' estudantes da turma selecionada.';
+            statusSuccess.hidden = false;
+          }
+          announce('Devolutiva formativa registrada para a turma selecionada.');
+          feedbackCloseTimer = setTimeout(function() {
+            feedbackCloseTimer = null;
+            closeFeedbackModal();
+          }, 2000);
+        })
+        .withFailureHandler(function() {
+          showFeedbackError(defaultFeedbackError, true);
+        })
+        .sendBatchFeedback(teacher, classIdSnapshot, feedbackText);
+  }
+
+  function loadDashboard(classId) {
+    var requestedClassId = safeClassId(classId) || 'all';
+    var requestId = ++dashboardRequestSerial;
+    currentClassId = requestedClassId;
+    currentData = null;
+    if (mainContent) mainContent.hidden = true;
+    clearDashboardError();
+    setDashboardBusy(true, requestedClassId === 'all' ? 'Carregando indicadores de todas as turmas…' : 'Carregando indicadores da turma selecionada…');
+
+    if (hasScriptRunner()) {
+      window.google.script.run
+        .withSuccessHandler(function(response) {
+          if (requestId !== dashboardRequestSerial) return;
+          if (!response || !response.ok || !response.data || typeof response.data !== 'object') {
+            showDashboardUnavailable('Não foi possível carregar os dados confirmados da turma.', true);
+            return;
+          }
+          renderDashboard(response.data);
+        })
+        .withFailureHandler(function() {
+          if (requestId !== dashboardRequestSerial) return;
+          showDashboardUnavailable('Não foi possível carregar os dados confirmados da turma.', true);
+        })
+        .getTeacherDashboard(window.currentUser || null, requestedClassId === 'all' ? '' : requestedClassId);
+    } else {
+      showDashboardUnavailable(defaultDashboardError, true);
+    }
+  }
+
+  // Tecla ESC fecha o modal
+  root.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modalOverlay && !modalOverlay.hidden) {
+      closeFeedbackModal();
+    }
+  });
+
+  loadDashboard('all');
+}());
+</script>

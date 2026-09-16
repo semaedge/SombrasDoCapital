@@ -1,0 +1,1149 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 01_Index.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Stub de tela e contrato inicial
+
+  PRINCIPAIS FUNCIONALIDADES
+  Shell principal do terminal.
+
+  INTEGRAÇÕES
+  Estrutura base, carregamento de CSS/JS e regiões de navegação; integra doGet e AppController.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO SCAFFOLD
+  O markup abaixo valida a composição e os estados mínimos da tela.
+  Substituí-lo por uma implementação produtiva exige teste de fluxo, teclado e responsividade.
+-->
+<?!= HtmlService.createHtmlOutputFromFile('00_GlobalStyles').getContent(); ?>
+
+<style>
+  [data-component="01_Index"] {
+    --ink: var(--color-light-gray);
+    --muted: var(--color-medium-gray);
+    --panel: var(--color-dark-graphite);
+    --panel-strong: var(--color-charcoal);
+    --line: var(--color-slate-gray);
+    --cyan: var(--color-neon-cyan);
+    --amber: var(--color-warning-amber);
+    --red: var(--color-coral-red);
+    color: var(--ink);
+    background: var(--color-deep-shadow);
+    min-height: 100vh;
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    letter-spacing: 0;
+  }
+
+  [data-component="01_Index"] *,
+  [data-component="01_Index"] *::before,
+  [data-component="01_Index"] *::after { box-sizing: border-box; }
+
+  [data-component="01_Index"] .terminal-grid {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+    min-height: 100vh;
+    background-image: linear-gradient(rgba(104, 212, 208, .025) 1px, transparent 1px), linear-gradient(90deg, rgba(104, 212, 208, .025) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  [data-component="01_Index"] .rail {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    padding: 28px 18px;
+    border-right: 1px solid var(--line);
+    background: rgba(11, 15, 16, .94);
+  }
+
+  [data-component="01_Index"] .brand { padding: 0 12px; }
+  [data-component="01_Index"] .brand-mark { color: var(--cyan); font-size: 11px; letter-spacing: .14em; }
+  [data-component="01_Index"] .brand h1 { margin: 8px 0 0; font: 700 20px/1.05 Georgia, serif; letter-spacing: 0; }
+  [data-component="01_Index"] .brand p { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+  [data-component="01_Index"] .nav-label { margin: 0 12px 10px; color: var(--muted); font-size: 10px; letter-spacing: .12em; }
+  [data-component="01_Index"] .nav { display: grid; gap: 5px; }
+  [data-component="01_Index"] .nav a { display: flex; align-items: center; gap: 12px; padding: 11px 12px; color: var(--muted); border-left: 2px solid transparent; text-decoration: none; font-size: 12px; }
+  [data-component="01_Index"] .nav a:hover, [data-component="01_Index"] .nav a[aria-current="page"] { color: var(--ink); border-left-color: var(--cyan); background: var(--panel); }
+  [data-component="01_Index"] .rail-status { margin-top: auto; padding: 14px 12px; border: 1px solid var(--line); background: var(--panel); font-size: 10px; }
+  [data-component="01_Index"] .status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); transition: all .25s ease; }
+  [data-component="01_Index"] .status-dot.saving { background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulse-amber-dot .8s infinite alternate; }
+  [data-component="01_Index"] .status-dot.saved { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+  [data-component="01_Index"] .status-dot.error { background: var(--red); box-shadow: 0 0 10px var(--red); animation: pulse-red-dot .6s infinite alternate; }
+  @keyframes pulse-amber-dot { from { opacity: 1; transform: scale(1); } to { opacity: .3; transform: scale(1.4); } }
+  @keyframes pulse-red-dot { from { opacity: 1; transform: scale(1); } to { opacity: .3; transform: scale(1.4); } }
+  [data-component="01_Index"] .status-copy { margin: 9px 0 0; color: var(--muted); line-height: 1.5; }
+
+  [data-component="01_Index"] .workspace { min-width: 0; padding: 28px clamp(20px, 4vw, 56px); }
+  [data-component="01_Index"] .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+  [data-component="01_Index"] .eyebrow { margin: 0 0 8px; color: var(--cyan); font-size: 10px; letter-spacing: .12em; }
+  [data-component="01_Index"] .topbar h2 { margin: 0; font: 700 clamp(24px, 3vw, 38px)/1.05 Georgia, serif; }
+  [data-component="01_Index"] .session { color: var(--muted); font-size: 10px; text-align: right; }
+  [data-component="01_Index"] .session strong { display: block; margin-top: 6px; color: var(--amber); font-size: 12px; font-weight: 400; }
+  [data-component="01_Index"] .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+  [data-component="01_Index"] .metric, [data-component="01_Index"] .panel { border: 1px solid var(--line); background: rgba(21, 26, 29, .9); }
+  [data-component="01_Index"] .metric { padding: 16px; }
+  [data-component="01_Index"] .metric span { display: block; color: var(--muted); font-size: 10px; }
+  [data-component="01_Index"] .metric strong { display: block; margin-top: 9px; font-size: 22px; font-weight: 400; }
+  [data-component="01_Index"] .metric strong[data-tone="amber"] { color: var(--amber); }
+  [data-component="01_Index"] .metric strong[data-tone="cyan"] { color: var(--cyan); }
+  [data-component="01_Index"] .main-columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(270px, .65fr); gap: 14px; }
+  [data-component="01_Index"] .panel { padding: 20px; }
+  [data-component="01_Index"] .panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  [data-component="01_Index"] .panel-heading h3 { margin: 0; font-size: 13px; font-weight: 400; }
+  [data-component="01_Index"] .panel-heading span { color: var(--muted); font-size: 10px; }
+  [data-component="01_Index"] .case { padding: 18px; border-left: 3px solid var(--amber); background: var(--panel-strong); }
+  [data-component="01_Index"] .case-tag { color: var(--amber); font-size: 10px; letter-spacing: .12em; }
+  [data-component="01_Index"] .case h3 { margin: 12px 0 8px; font: 700 24px/1.1 Georgia, serif; }
+  [data-component="01_Index"] .case p { max-width: 68ch; margin: 0; color: #b7c1c4; font-family: Georgia, serif; font-size: 15px; line-height: 1.55; }
+  [data-component="01_Index"] .case-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  [data-component="01_Index"] .button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 13px; border: 1px solid var(--cyan); color: #071011; background: var(--cyan); font: 700 11px "IBM Plex Mono", "Courier New", monospace; text-decoration: none; cursor: pointer; }
+  [data-component="01_Index"] .button.secondary { color: var(--cyan); background: transparent; }
+  [data-component="01_Index"] .button:hover, [data-component="01_Index"] .button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  [data-component="01_Index"] .evidence-list { display: grid; gap: 9px; }
+  [data-component="01_Index"] .empty-state { margin: 0; padding: 12px 0; color: var(--muted); font-size: 11px; }
+  [data-component="01_Index"] .evidence { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  [data-component="01_Index"] .evidence:last-child { border-bottom: 0; }
+  [data-component="01_Index"] .evidence-icon { color: var(--cyan); font-size: 16px; }
+  [data-component="01_Index"] .evidence strong { display: block; font-size: 11px; font-weight: 400; }
+  [data-component="01_Index"] .evidence small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+  [data-component="01_Index"] .evidence em { color: var(--amber); font-size: 10px; font-style: normal; }
+  [data-component="01_Index"] .phases { display: grid; gap: 8px; }
+  [data-component="01_Index"] .phase { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  [data-component="01_Index"] .phase:last-child { border-bottom: 0; }
+  [data-component="01_Index"] .phase-number { color: var(--muted); font-size: 10px; }
+  [data-component="01_Index"] .phase strong { font-size: 11px; font-weight: 400; }
+  [data-component="01_Index"] .phase small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+  [data-component="01_Index"] .phase-state { color: var(--muted); font-size: 10px; }
+  [data-component="01_Index"] .phase[data-state="active"] .phase-number, [data-component="01_Index"] .phase[data-state="active"] .phase-state { color: var(--amber); }
+  [data-component="01_Index"] .phase[data-state="locked"] { opacity: .48; }
+  [data-component="01_Index"] .quote { margin-top: 14px; color: var(--muted); font: italic 15px/1.5 Georgia, serif; }
+  [data-component="01_Index"] .quote::before { content: "// "; color: var(--cyan); font-family: "Courier New", monospace; }
+  [data-component="01_Index"] .play-area { display: none; margin-top: 14px; }
+  [data-component="01_Index"] .play-area[data-open="true"] { display: block; }
+  [data-component="01_Index"] .play-card { border: 1px solid var(--cyan); background: #101718; padding: 22px; }
+  [data-component="01_Index"] .play-meta { color: var(--amber); font-size: 10px; letter-spacing: .12em; }
+  [data-component="01_Index"] .play-card h3 { margin: 12px 0 10px; font: 700 25px/1.1 Georgia, serif; }
+  [data-component="01_Index"] .play-copy { color: #c0c9cb; font: 16px/1.6 Georgia, serif; }
+  [data-component="01_Index"] .play-source { margin: 18px 0; padding: 12px; border-left: 2px solid var(--cyan); color: var(--muted); font-size: 11px; line-height: 1.5; }
+  [data-component="01_Index"] .play-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  [data-component="01_Index"] .choice-list { display: grid; gap: 8px; margin: 18px 0; }
+  [data-component="01_Index"] .choice-list label { display: block; padding: 12px; border: 1px solid var(--line); color: #d5dddf; font-size: 11px; cursor: pointer; }
+  [data-component="01_Index"] .choice-list label:has(input:checked) { border-color: var(--cyan); background: var(--panel-strong); }
+  [data-component="01_Index"] .choice-list input { margin-right: 9px; accent-color: var(--cyan); }
+  [data-component="01_Index"] .play-result { margin: 18px 0 0; padding: 13px; border-left: 2px solid var(--amber); color: #d5dddf; font: 15px/1.5 Georgia, serif; }
+  [data-component="01_Index"] [data-route][hidden] { display: none; }
+  
+  /* Transições suaves de cross-fade entre rotas (Prompt 77) */
+  [data-component="01_Index"] .workspace {
+    min-width: 0;
+    padding: 28px clamp(20px, 4vw, 56px);
+    position: relative;
+  }
+  
+  [data-component="01_Index"] [data-route] {
+    opacity: 1;
+    transition: opacity 0.18s ease-in-out;
+  }
+  
+  [data-component="01_Index"] [data-route].route-fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  [data-component="01_Index"] [data-route].route-fade-in {
+    animation: index-route-fade-in 0.18s ease-in-out forwards;
+  }
+  
+  @keyframes index-route-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  [data-component="01_Index"] .service-order { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0; padding: 14px 16px; border-left: 3px solid var(--cyan); background: var(--panel-strong); animation: service-order-in .45s ease both; }
+  [data-component="01_Index"] .service-order p { margin: 0; color: #c0c9cb; font-size: 11px; line-height: 1.5; }
+  [data-component="01_Index"] .service-order strong { color: var(--cyan); font-size: 10px; font-weight: 400; letter-spacing: .12em; }
+  [data-component="01_Index"] .service-order button, [data-component="01_Index"] .quick-drawer button { border: 1px solid var(--cyan); padding: 8px 10px; color: var(--cyan); background: transparent; font: 700 10px "IBM Plex Mono", "Courier New", monospace; cursor: pointer; }
+  [data-component="01_Index"] .content-notice { margin: 0 0 18px; padding: 11px 14px; border: 1px solid rgba(240, 179, 91, .45); border-left: 3px solid var(--amber); color: #c9d0d2; background: rgba(240, 179, 91, .06); font-size: 10px; line-height: 1.5; }
+  [data-component="01_Index"] .content-notice strong { color: var(--amber); letter-spacing: .12em; }
+  [data-component="01_Index"] .quick-drawer { position: fixed; z-index: 5; top: 0; right: 0; width: min(88vw, 340px); height: 100vh; padding: 28px 22px; border-left: 1px solid var(--cyan); background: #101718; box-shadow: -12px 0 30px rgba(0,0,0,.35); }
+  [data-component="01_Index"] .quick-drawer h2 { margin-top: 0; font: 700 22px Georgia, serif; }
+  [data-component="01_Index"] .quick-drawer p { color: #b9c3c5; font: 15px/1.6 Georgia, serif; }
+  @keyframes service-order-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 820px) {
+    [data-component="01_Index"] .terminal-grid { grid-template-columns: 1fr; }
+    [data-component="01_Index"] .rail { gap: 18px; padding: 18px; border-right: 0; border-bottom: 1px solid var(--line); }
+    [data-component="01_Index"] .nav { grid-template-columns: repeat(3, 1fr); }
+    [data-component="01_Index"] .rail-status { display: none; }
+    [data-component="01_Index"] .main-columns { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    [data-component="01_Index"] .workspace { padding: 22px 16px; }
+    [data-component="01_Index"] .topbar { align-items: flex-start; flex-direction: column; }
+  /* 01_Index: Container Central de Notificações Toast */
+  #toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    max-width: 380px;
+    width: calc(100vw - 48px);
+  }
+
+  .toast-item {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #111719;
+    border: 1px solid #28363b;
+    border-radius: 4px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    animation: toast-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .toast-item.toast-fade-out {
+    animation: toast-fade-out 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes toast-slide-in {
+    from {
+      transform: translateX(120%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes toast-fade-out {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(60px);
+      opacity: 0;
+    }
+  }
+
+  .toast-item.toast-success {
+    border-left: 4px solid var(--cyan);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 12px rgba(104, 212, 208, 0.15);
+  }
+
+  .toast-item.toast-alert {
+    border-left: 4px solid var(--amber);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 12px rgba(240, 179, 91, 0.15);
+  }
+
+  .toast-item.toast-error {
+    border-left: 4px solid var(--red);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 12px rgba(226, 116, 104, 0.15);
+  }
+
+  .toast-icon {
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .toast-success .toast-icon { color: var(--cyan); }
+  .toast-alert .toast-icon { color: var(--amber); }
+  .toast-error .toast-icon { color: var(--red); }
+
+  .toast-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .toast-title {
+    margin: 0 0 4px;
+    font: 700 12px "IBM Plex Mono", monospace;
+    letter-spacing: .04em;
+  }
+
+  .toast-success .toast-title { color: #ffffff; }
+  .toast-alert .toast-title { color: var(--amber); }
+  .toast-error .toast-title { color: var(--red); }
+
+  .toast-msg {
+    margin: 0;
+    font-size: 11px;
+    color: #a4b4ba;
+    line-height: 1.45;
+  }
+
+  .toast-close {
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 0 0 8px;
+    line-height: 1;
+    transition: color 0.15s ease;
+  }
+
+  .toast-close:hover {
+    color: #ffffff;
+  }
+
+  /* Utility Skeleton Shimmer */
+  @keyframes skeleton-shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, #13191c 25%, #222d32 50%, #13191c 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+    border-radius: 3px;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .skeleton-text {
+    height: 14px;
+    margin-bottom: 8px;
+  }
+
+  .skeleton-title {
+    height: 24px;
+    width: 60%;
+    margin-bottom: 12px;
+  }
+
+  .skeleton-card {
+    background: #141a1d;
+    border: 1px solid #28363b;
+    border-radius: 4px;
+    padding: 18px;
+  }
+
+  /* Prompt 66: Anéis de Foco Visíveis em Âmbar Brilhante (WCAG 2.1 AA) */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  dialog:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--color-warning-amber) !important;
+    outline-offset: 3px !important;
+  }
+
+  /* Prompt 66: Links ocultos de salto no topo da página */
+  .skip-links {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100000;
+  }
+  .skip-link {
+    position: absolute;
+    top: -80px;
+    left: 14px;
+    padding: 10px 18px;
+    background: #111719;
+    color: var(--color-warning-amber);
+    border: 2px solid var(--color-warning-amber);
+    font: 700 12px "IBM Plex Mono", monospace;
+    border-radius: 3px;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
+    transition: top .15s ease;
+    z-index: 100001;
+  }
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    top: 14px;
+    outline: 2px solid var(--color-warning-amber) !important;
+    outline-offset: 3px !important;
+  }
+</style>
+
+<!-- Prompt 66: Links de Salto Acessíveis -->
+<nav class="skip-links" aria-label="Atalhos de acessibilidade">
+  <a href="#terminal" class="skip-link">Pular para o conteúdo principal</a>
+  <a href="#main-nav" class="skip-link">Pular para o menu lateral</a>
+</nav>
+
+<section data-component="01_Index" aria-labelledby="terminal-title">
+  <div class="terminal-grid">
+    <aside class="rail" aria-label="Navegação principal">
+      <div class="brand">
+        <div class="brand-mark">[ CONSÓRCIO // 07 ]</div>
+        <h1>O Terminal</h1>
+        <p>Sombras do Capital<br>ambiente seguro de investigação</p>
+      </div>
+      <div>
+        <p class="nav-label">MÓDULOS</p>
+        <nav class="nav" id="main-nav">
+          <a href="#terminal" aria-current="page"><b>01</b> Terminal</a>
+          <a href="#evidence"><b>02</b> Evidências</a>
+          <a href="#phases"><b>03</b> Fases</a>
+          <a href="#report"><b>04</b> Reportagem</a>
+          <a href="#help"><b>05</b> Ajuda</a>
+        </nav>
+      </div>
+      <div class="rail-status" role="status" aria-live="polite">
+        <span class="status-dot saved" aria-hidden="true"></span>
+        <span id="sync-status-text">VERIFICANDO SESSÃO...</span>
+        <p class="status-copy" id="sync-status-timestamp">Preparando sua investigação</p>
+      </div>
+    </aside>
+
+    <main class="workspace" id="terminal">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">PAINEL DE INVESTIGAÇÃO / VISÃO GERAL</p>
+          <h2 id="terminal-title">Bom trabalho, analista.</h2>
+        </div>
+        <div class="session">SESSÃO ATIVA<strong id="active-user-label">ANALISTA</strong></div>
+      </header>
+
+      <p data-state="loading" hidden>Carregando dados do terminal…</p>
+      <p data-state="error" hidden>Não foi possível concluir a operação.</p>
+      <aside class="service-order" id="service-order" aria-label="Sua missão agora"><p><strong>SUA MISSÃO AGORA</strong><br>Leia a pista, confirme uma fonte e só então decida se publica.<br>Comece pelo arquivo aberto e registre sua decisão.</p><button type="button" id="dismiss-service-order">ENTENDI — COMEÇAR</button></aside>
+      <aside class="content-notice" aria-label="Natureza do conteúdo"><strong>FICÇÃO DIDÁTICA</strong><br>Personagens, documentos e dados do caso são simulados para praticar checagem. Eles não descrevem fatos nem acusações reais.</aside>
+
+      <section class="metrics" aria-label="Resumo da investigação">
+        <div class="metric"><span>EVIDÊNCIAS COLETADAS</span><strong id="metric-evidence" data-tone="cyan">—</strong></div>
+        <div class="metric"><span>RIGOR DOCUMENTAL</span><strong id="metric-rigor" data-tone="amber">—</strong></div>
+        <div class="metric"><span>TEMPO DE SESSÃO</span><strong id="metric-time">—</strong></div>
+      </section>
+
+      <div class="main-columns">
+        <section class="panel" aria-labelledby="case-title">
+          <div class="panel-heading"><h3>ARQUIVO ABERTO</h3><span>CASE_001 / PRIORIDADE ALTA</span></div>
+          <div class="case">
+            <div class="case-tag">FASE 01 // A CRIA</div>
+            <h3 id="case-title">O áudio que não deveria existir</h3>
+            <p>Uma gravação chegou ao terminal envolvendo uma estrutura pública do caso. Antes de publicar, você precisa decidir se a urgência justifica trabalhar com uma única fonte.</p>
+            <div class="case-actions"><a class="button" href="#scene">ABRIR INVESTIGAÇÃO <span aria-hidden="true">→</span></a><a class="button secondary" href="#evidence">VER EVIDÊNCIAS</a></div>
+          </div>
+          <p class="quote">A velocidade informa. O rigor sustenta.</p>
+        </section>
+
+        <section class="panel" id="evidence" data-route="evidence" aria-labelledby="evidence-title">
+          <div class="panel-heading"><h3 id="evidence-title">ÚLTIMAS EVIDÊNCIAS</h3><span id="evidence-count">DADOS NÃO SINCRONIZADOS</span></div>
+          <div class="evidence-list" id="evidence-list">
+            <p class="empty-state">Aguardando sincronização das evidências.</p>
+          </div>
+        </section>
+
+        <section class="panel" id="phases" data-route="phases" aria-labelledby="phases-title">
+          <div class="panel-heading"><h3 id="phases-title">LINHA DE INVESTIGAÇÃO</h3><span>01 / 05</span></div>
+          <div class="phases" id="phase-list">
+            <p class="empty-state">Aguardando sincronização do progresso.</p>
+          </div>
+        </section>
+      </div>
+      <div data-slot="content"></div>
+      <section class="play-area" id="scene" data-route="scene" aria-labelledby="play-title" aria-live="polite">
+        <article class="play-card">
+          <div class="play-meta" id="play-meta">FASE 01 // CENA 01</div>
+          <h3 id="play-title">O áudio que não deveria existir</h3>
+          <p class="play-copy" id="play-copy">A mensagem chegou às 03:17. Um arquivo sem remetente, uma voz conhecida e uma decisão que não pode ser tomada apenas com pressa.</p>
+          <p class="play-source" id="play-source"><strong>FONTE ANÔNIMA — FICÇÃO DIDÁTICA</strong><br>“Você vai querer ouvir antes que alguém descubra que recebeu.”</p>
+          <div class="play-actions"><button class="button" type="button" id="play-continue">CONTINUAR LEITURA <span aria-hidden="true">→</span></button><button class="button secondary" type="button" id="open-objective">VER OBJETIVO DA FASE</button></div>
+          <form id="play-choice" hidden>
+            <p class="play-copy">Você tem um áudio sem confirmação independente. O que faz agora?</p>
+            <div class="choice-list">
+              <label><input type="radio" name="initial-choice" value="publish"> Publicar o áudio imediatamente.</label>
+              <label><input type="radio" name="initial-choice" value="verify"> Segurar a publicação e cruzar os dados.</label>
+            </div>
+            <button class="button" type="submit">CONFIRMAR DECISÃO <span aria-hidden="true">→</span></button>
+          </form>
+          <p class="play-result" id="play-result" hidden role="status"></p>
+        </article>
+      </section>
+    </main>
+  <aside class="quick-drawer" id="quick-drawer" hidden aria-labelledby="quick-drawer-title"><button type="button" id="close-quick-drawer">FECHAR</button><h2 id="quick-drawer-title">Objetivo da fase</h2><p id="quick-drawer-copy">Investigue A Cria: compare a urgência do áudio com a necessidade de confirmar a informação.</p></aside>
+
+  <!-- 1. Container Central de Notificações Toast -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+</section>
+
+<script>
+  (function() {
+    var root = document.querySelector('[data-component="01_Index"]');
+    if (!root) return;
+
+    var playArea = root.querySelector('#scene');
+    var openButton = root.querySelector('.case-actions a[href="#scene"]');
+    var continueButton = root.querySelector('#play-continue');
+    var choiceForm = root.querySelector('#play-choice');
+    var result = root.querySelector('#play-result');
+    var routeTargets = Array.prototype.slice.call(root.querySelectorAll('[data-route]'));
+    var workspaceMain = root.querySelector('.workspace');
+    var currentRoute = null;
+    var routeStateCache = {}; // Cache para retenção de estado (Prompt 77.3)
+    var episodeKey = 'A Cria';
+    var serviceOrder = root.querySelector('#service-order');
+    var quickDrawer = root.querySelector('#quick-drawer');
+    var dismissOrder = root.querySelector('#dismiss-service-order');
+    var closeDrawer = root.querySelector('#close-quick-drawer');
+    var openObjective = root.querySelector('#open-objective');
+    var loading = root.querySelector('[data-state="loading"]');
+    var error = root.querySelector('[data-state="error"]');
+
+    function restoreSessionState() {
+      try {
+        var saved = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+        if (!saved || !saved.token || !saved.user || !saved.user.id) return false;
+        window.currentSessionToken = String(saved.token);
+        window.currentUser = saved.user;
+        window.currentUserId = String(saved.user.id);
+        renderUserIdentity(saved.user);
+        return true;
+      } catch (sessionError) {
+        return false;
+      }
+    }
+
+    function showLoginRequired() {
+      if (loading) loading.hidden = true;
+      if (!error) return;
+      if (typeof setSyncState === 'function') setSyncState('error');
+      error.textContent = 'Sua sessão não está ativa. ';
+      var link = document.createElement('a');
+      link.href = '?page=02_Login';
+      link.textContent = 'Entrar novamente →';
+      link.style.color = 'var(--cyan)';
+      error.appendChild(link);
+      error.hidden = false;
+    }
+
+    function renderUserIdentity(user) {
+      var label = root.querySelector('#active-user-label');
+      if (label) label.textContent = (user && (user.name || user.login)) || 'ANALISTA';
+    }
+    
+    var validRoutes = ['terminal', 'evidence', 'phases', 'scene', 'report', 'help', 'teacher-login', 'teacher-dashboard'];
+    
+    try { serviceOrder.hidden = window.localStorage.getItem('onboarding:' + episodeKey) === 'read'; } catch (error) {}
+    dismissOrder.addEventListener('click', function() { try { window.localStorage.setItem('onboarding:' + episodeKey, 'read'); } catch (error) {} serviceOrder.hidden = true; });
+    function toggleQuickDrawer(open) { quickDrawer.hidden = !open; if (open) closeDrawer.focus(); }
+    closeDrawer.addEventListener('click', function() { toggleQuickDrawer(false); });
+    if (openObjective) openObjective.addEventListener('click', function() { toggleQuickDrawer(true); });
+    document.addEventListener('keydown', function(event) { if (event.key !== '?' || /input|textarea|select/i.test(document.activeElement.tagName)) return; event.preventDefault(); toggleQuickDrawer(quickDrawer.hidden); });
+
+    /**
+     * Salva estado da rota para retenção (Prompt 77.3)
+     */
+    function saveRouteState(route) {
+      var slot = root.querySelector('[data-route="' + route + '"]');
+      if (!slot) return;
+      
+      var inputs = slot.querySelectorAll('input, textarea, select');
+      var state = {};
+      
+      inputs.forEach(function(input) {
+        if (input.id || input.name) {
+          var key = input.id || input.name;
+          
+          if (input.type === 'checkbox' || input.type === 'radio') {
+            state[key] = input.checked;
+          } else {
+            state[key] = input.value;
+          }
+        }
+      });
+      
+      if (slot.scrollTop > 0) {
+        state._scrollTop = slot.scrollTop;
+      }
+      
+      routeStateCache[route] = state;
+    }
+    
+    /**
+     * Restaura estado da rota (Prompt 77.3)
+     */
+    function restoreRouteState(route, slot) {
+      var state = routeStateCache[route];
+      if (!state) return;
+      
+      Object.keys(state).forEach(function(key) {
+        if (key === '_scrollTop') return;
+        
+        var input = slot.querySelector('#' + key) || slot.querySelector('[name="' + key + '"]');
+        if (!input) return;
+        
+        if (input.type === 'checkbox' || input.type === 'radio') {
+          input.checked = state[key];
+        } else {
+          input.value = state[key];
+        }
+      });
+      
+      if (state._scrollTop) {
+        setTimeout(function() {
+          slot.scrollTop = state._scrollTop;
+        }, 50);
+      }
+    }
+
+    /**
+     * Atualiza rota com transição cross-fade (Prompt 77)
+     */
+    function updateRoute() {
+      var hash = window.location.hash.replace(/^#/, '');
+      var route = hash || 'terminal';
+      
+      if (validRoutes.indexOf(route) === -1) {
+        route = 'terminal';
+        window.location.hash = route;
+        return;
+      }
+      
+      if (currentRoute === route) return;
+      
+      var oldRoute = currentRoute;
+      currentRoute = route;
+      
+      // 1. Salva estado da rota anterior (Prompt 77.3)
+      if (oldRoute) {
+        saveRouteState(oldRoute);
+      }
+      
+      // 2. Inicia fade-out
+      routeTargets.forEach(function(target) {
+        if (!target.hidden && target.dataset.route !== route) {
+          target.classList.add('route-fade-out');
+        }
+      });
+      
+      // 3. Aguarda transição e troca rotas
+      setTimeout(function() {
+        routeTargets.forEach(function(target) {
+          var isActive = target.dataset.route === route;
+          
+          if (isActive) {
+            target.hidden = false;
+            target.classList.remove('route-fade-out');
+            target.classList.add('route-fade-in');
+            
+            restoreRouteState(route, target);
+            
+            setTimeout(function() {
+              target.classList.remove('route-fade-in');
+            }, 180);
+          } else {
+            target.hidden = true;
+            target.classList.remove('route-fade-out', 'route-fade-in');
+          }
+        });
+        
+        // 2. Scroll restoration (Prompt 77.2)
+        if (workspaceMain) {
+          workspaceMain.scrollTop = 0;
+        }
+        window.scrollTo(0, 0);
+        
+      }, 180);
+      
+      // 4. Atualiza aria-current (Prompt 77.4)
+      root.querySelectorAll('.nav a').forEach(function(link) {
+        var active = link.getAttribute('href') === '#' + route;
+        if (active) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      });
+      
+      window.dispatchEvent(new CustomEvent('route:changed', { 
+        detail: { route: route, oldRoute: oldRoute } 
+      }));
+    }
+    
+    window.addEventListener('hashchange', updateRoute);
+    window.addEventListener('popstate', updateRoute);
+    updateRoute();
+    
+    // Auto-save periódico e antes de sair
+    setInterval(function() {
+      if (currentRoute) saveRouteState(currentRoute);
+    }, 30000);
+    
+    window.addEventListener('beforeunload', function() {
+      if (currentRoute) saveRouteState(currentRoute);
+    });
+
+    openButton.addEventListener('click', function(event) {
+      event.preventDefault();
+      window.location.hash = 'scene';
+      playArea.dataset.open = 'true';
+      playArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      continueButton.focus();
+    });
+    continueButton.addEventListener('click', function() {
+      continueButton.hidden = true;
+      choiceForm.hidden = false;
+      choiceForm.querySelector('input').focus();
+    });
+    choiceForm.addEventListener('submit', function(event) {
+      event.preventDefault();
+      var selected = choiceForm.querySelector('input:checked');
+      if (!selected) return;
+      choiceForm.querySelector('button').disabled = true;
+      submitChoice(selected.value);
+    });
+
+    function submitChoice(choiceId) {
+      var playerId = window.currentUserId || '';
+      if (!playerId) {
+        setSyncState('error');
+        result.hidden = false;
+        result.textContent = 'Sua sessão expirou. Entre novamente para registrar a decisão.';
+        choiceForm.querySelector('button').disabled = false;
+        return;
+      }
+      setSyncState('saving', function() { submitChoice(choiceId); });
+      if (!window.google || !google.script || !google.script.run) {
+        setSyncState('error');
+        result.hidden = false;
+        result.textContent = 'Servidor indisponível. A decisão não foi registrada. Tente novamente quando a conexão voltar.';
+        choiceForm.querySelector('button').disabled = false;
+        return;
+      }
+      google.script.run.withSuccessHandler(function(response) {
+        if (!response || !response.ok || !response.data) {
+          setSyncState('error');
+          choiceForm.querySelector('button').disabled = false;
+          result.hidden = false;
+          result.textContent = response && response.error && response.error.message
+            ? response.error.message
+            : 'Não foi possível registrar a decisão. Tente novamente.';
+          return;
+        }
+        setSyncState('saved');
+        renderChoice(response);
+      }).withFailureHandler(function() {
+        setSyncState('error', function() { submitChoice(choiceId); });
+        choiceForm.querySelector('button').disabled = false;
+        result.hidden = false;
+        result.textContent = 'Não foi possível registrar a decisão. Tentando reconectar...';
+      }).submitChoice(choiceId, window.currentSessionToken || playerId, 'scene-01');
+    }
+
+    function renderChoice(response) {
+      if (!response || !response.ok || !response.data) return;
+      result.textContent = response.data.consequence || 'Decisão registrada.';
+      result.hidden = false;
+      choiceForm.querySelectorAll('input').forEach(function(input) { input.disabled = true; });
+    }
+
+    if (!window.google || !google.script || !google.script.run) return;
+    if (!restoreSessionState()) {
+      showLoginRequired();
+      return;
+    }
+
+    loading.hidden = false;
+    error.hidden = true;
+
+    google.script.run
+      .withSuccessHandler(function(session) {
+        if (!session || !session.user || !session.user.id) {
+          try { window.localStorage.removeItem('sombras.session'); } catch (ignored) {}
+          showLoginRequired();
+          return;
+        }
+        window.currentUser = session.user;
+        window.currentUserId = String(session.user.id);
+        renderUserIdentity(session.user);
+        loadDashboard();
+      })
+      .withFailureHandler(showLoginRequired)
+      .getSession(window.currentSessionToken);
+
+    function loadDashboard() {
+      loading.hidden = false;
+      error.hidden = true;
+      google.script.run
+        .withSuccessHandler(renderDashboard)
+        .withFailureHandler(function() {
+          loading.hidden = true;
+          clearDashboardData();
+          if (typeof setSyncState === 'function') setSyncState('error');
+          error.textContent = 'Não foi possível carregar o terminal. ';
+          var retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'button secondary';
+          retry.textContent = 'Tentar novamente';
+          retry.addEventListener('click', loadDashboard);
+          error.appendChild(retry);
+          error.hidden = false;
+        })
+        .getDashboardData(window.currentSessionToken);
+    }
+
+    function renderDashboard(response) {
+      loading.hidden = true;
+      if (!response || !response.ok) {
+        clearDashboardData();
+        if (typeof setSyncState === 'function') setSyncState('error');
+        error.textContent = 'O terminal não devolveu os dados esperados. ';
+        var retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'button secondary';
+        retry.textContent = 'Tentar novamente';
+        retry.addEventListener('click', loadDashboard);
+        error.appendChild(retry);
+        error.hidden = false;
+        return;
+      }
+
+      error.hidden = true;
+      if (typeof setSyncState === 'function') setSyncState('saved');
+      var data = response.data || {};
+      var metrics = data.metrics || {};
+      var collected = metrics.evidenceCollected == null ? '—' : metrics.evidenceCollected;
+      var total = metrics.evidenceTotal == null ? '—' : metrics.evidenceTotal;
+      var rigor = metrics.documentaryRigor == null ? '—' : metrics.documentaryRigor + '%';
+      setText('metric-evidence', collected + ' / ' + total);
+      setText('metric-rigor', rigor);
+      setText('evidence-count', collected === '—' ? 'DADOS NÃO SINCRONIZADOS' : collected + ' REGISTROS');
+      renderEvidence(data.evidence || []);
+      renderPhases(data.phases || []);
+    }
+
+    function clearDashboardData() {
+      setText('metric-evidence', '—');
+      setText('metric-rigor', '—');
+      setText('evidence-count', 'DADOS NÃO SINCRONIZADOS');
+      renderEvidence([]);
+      renderPhases([]);
+    }
+
+    function renderEvidence(items) {
+      var list = root.querySelector('#evidence-list');
+      if (!list) return;
+      list.textContent = '';
+      if (!items.length) {
+        var empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.textContent = 'Nenhuma evidência confirmada nesta sessão.';
+        list.appendChild(empty);
+        return;
+      }
+      items.forEach(function(item) {
+        var row = document.createElement('div');
+        row.className = 'evidence';
+        row.innerHTML = '<span class="evidence-icon" aria-hidden="true">◈</span>' +
+          '<div><strong></strong><small></small></div><em></em>';
+        row.querySelector('strong').textContent = item.type || 'DOCUMENTO';
+        row.querySelector('small').textContent = (item.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA — REVISÃO DOCENTE') + ' · ' + (item.source || 'Origem não informada');
+        row.querySelector('em').textContent = item.status || 'PENDENTE';
+        list.appendChild(row);
+      });
+    }
+
+    function renderPhases(phases) {
+      var list = root.querySelector('#phase-list');
+      if (!list) return;
+      list.textContent = '';
+      if (!phases.length) {
+        var empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.textContent = 'Nenhum progresso confirmado nesta sessão.';
+        list.appendChild(empty);
+        return;
+      }
+      phases.forEach(function(phase) {
+        var row = document.createElement('div');
+        row.className = 'phase';
+        row.dataset.state = phase.state || 'locked';
+        row.innerHTML = '<span class="phase-number"></span><div><strong></strong><small></small></div><span class="phase-state"></span>';
+        row.querySelector('.phase-number').textContent = String(phase.number).padStart(2, '0');
+        row.querySelector('strong').textContent = phase.title || 'Fase sem título';
+        row.querySelector('small').textContent = phase.subtitle || '';
+        row.querySelector('.phase-state').textContent = phase.state === 'active' ? 'ATIVA' : phase.state === 'open' ? 'ABERTA' : 'BLOQUEADA';
+        list.appendChild(row);
+      });
+    }
+
+    function setText(id, value) {
+      var element = root.querySelector('#' + id);
+      if (element) element.textContent = value;
+    }
+
+    /* 2 & 3. Função Global showToast com Animação e Timeout de 4s */
+    window.showToast = function(title, message, type) {
+      var container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.setAttribute('aria-live', 'polite');
+        container.setAttribute('aria-atomic', 'true');
+        document.body.appendChild(container);
+      }
+
+      var validTypes = ['success', 'alert', 'error'];
+      var toastType = validTypes.indexOf(type) >= 0 ? type : 'success';
+
+      var icons = {
+        success: '✓',
+        alert: '⚠️',
+        error: '✕'
+      };
+
+      var toast = document.createElement('div');
+      toast.className = 'toast-item toast-' + toastType;
+      toast.setAttribute('role', toastType === 'error' ? 'alert' : 'status');
+
+      var iconSpan = document.createElement('span');
+      iconSpan.className = 'toast-icon';
+      iconSpan.setAttribute('aria-hidden', 'true');
+      iconSpan.textContent = icons[toastType];
+
+      var bodyDiv = document.createElement('div');
+      bodyDiv.className = 'toast-body';
+
+      var titleEl = document.createElement('h4');
+      titleEl.className = 'toast-title';
+      titleEl.textContent = title || 'Notificação';
+
+      var msgEl = document.createElement('p');
+      msgEl.className = 'toast-msg';
+      msgEl.textContent = message || '';
+
+      bodyDiv.appendChild(titleEl);
+      bodyDiv.appendChild(msgEl);
+
+      var closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'toast-close';
+      closeBtn.setAttribute('aria-label', 'Fechar notificação');
+      closeBtn.textContent = '✕';
+
+      toast.appendChild(iconSpan);
+      toast.appendChild(bodyDiv);
+      toast.appendChild(closeBtn);
+
+      container.appendChild(toast);
+
+      function dismiss() {
+        if (toast.dataset.dismissed) return;
+        toast.dataset.dismissed = 'true';
+        toast.classList.add('toast-fade-out');
+        setTimeout(function() {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 400);
+      }
+
+      closeBtn.addEventListener('click', dismiss);
+
+      // 3. Permanece visível por 4 segundos
+      setTimeout(dismiss, 4000);
+      return toast;
+    };
+
+    /* 4. Integração do Toast às Ações Principais */
+    // A. Desbloqueio de nova pista / fixação de pista
+    window.addEventListener('evidence:unlocked', function(e) {
+      var d = e.detail || {};
+      window.showToast('Nova Pista Desbloqueada', d.title || 'Novo documento incorporado ao prontuário do caso.', 'success');
+    });
+
+    window.addEventListener('clue:pinned', function(e) {
+      var d = e.detail || {};
+      window.showToast('Pista Fixada', d.title || 'Trecho probatório anexado ao seu quadro de pistas.', 'success');
+    });
+
+    // B. Salvamento automático de reflexão
+    window.addEventListener('reflection:saved', function(e) {
+      var d = e.detail || {};
+      window.showToast('Reflexão Sincronizada', 'Seus registros reflexivos foram arquivados com sucesso.', 'success');
+    });
+
+    // C. Perda e recuperação de conexão
+    window.addEventListener('offline', function() {
+      setSyncState('error');
+      window.showToast('Conexão Interrompida', 'As decisões não serão confirmadas até a conexão voltar. O trabalho permanece na tela.', 'alert');
+    });
+
+    window.addEventListener('online', function() {
+      window.showToast('Conexão Restabelecida', 'O terminal reconectou aos servidores com sucesso.', 'success');
+    });
+
+    window.addEventListener('network:error', function(e) {
+      var d = e.detail || {};
+      window.showToast('Falha de Comunicação', d.message || 'Não foi possível contatar o servidor.', 'error');
+    });
+
+    /* Prompt 64: Monitor Ativo de Sincronização e Conectividade em Tempo Real */
+    var lastMutation = null;
+    var retryTimer = null;
+
+    function setSyncState(state, retryAction) {
+      var dot = root.querySelector('.status-dot');
+      var textEl = root.querySelector('#sync-status-text');
+      var copyEl = root.querySelector('#sync-status-timestamp');
+
+      if (retryAction) lastMutation = retryAction;
+
+      if (state === 'saving') {
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+        if (dot) dot.className = 'status-dot saving';
+        if (textEl) textEl.textContent = 'GRAVANDO DADOS NO SERVIDOR...';
+        if (copyEl) copyEl.innerHTML = 'Transmitindo mutação...<br>aguarde confirmação';
+      } else if (state === 'saved') {
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+        if (dot) dot.className = 'status-dot saved';
+        var now = new Date();
+        var timeStr = now.toLocaleTimeString('pt-BR');
+        if (textEl) textEl.textContent = 'TODAS AS RESPOSTAS SALVAS';
+        if (copyEl) copyEl.innerHTML = 'Sessão protegida<br>última sincronização: ' + timeStr;
+      } else if (state === 'error') {
+        if (dot) dot.className = 'status-dot error';
+        if (textEl) textEl.textContent = 'MODO LOCAL - TENTANDO RECONECTAR...';
+        if (copyEl) copyEl.innerHTML = 'Conexão interrompida<br>reenvio automático em 5s';
+
+        // 4. Tenta reenviar a última mutação após 5 segundos
+        if (retryTimer) clearTimeout(retryTimer);
+        retryTimer = setTimeout(function() {
+          if (lastMutation && typeof lastMutation === 'function') {
+            setSyncState('saving', lastMutation);
+            lastMutation();
+          }
+        }, 5000);
+      }
+    }
+
+    window.setSyncState = setSyncState;
+    window.addEventListener('sync:start', function(e) { setSyncState('saving', e.detail && e.detail.retryAction); });
+    window.addEventListener('sync:success', function() { setSyncState('saved'); });
+    window.addEventListener('sync:error', function(e) { setSyncState('error', e.detail && e.detail.retryAction); });
+
+    /* Prompt 66: Focus Trap e Restauração de Foco em Modais e Diálogos */
+    var lastActiveTrigger = null;
+
+    document.addEventListener('click', function(e) {
+      var btn = e.target.closest('button, a');
+      if (btn) lastActiveTrigger = btn;
+    }, true);
+
+    function setupFocusTrap(dialog) {
+      if (!dialog) return;
+
+      dialog.addEventListener('keydown', function(e) {
+        if (e.key !== 'Tab') return;
+        var focusable = dialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+        if (!focusable.length) return;
+
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || !dialog.contains(document.activeElement)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last || !dialog.contains(document.activeElement)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      });
+
+      dialog.addEventListener('close', function() {
+        if (lastActiveTrigger && typeof lastActiveTrigger.focus === 'function') {
+          setTimeout(function() { lastActiveTrigger.focus(); }, 10);
+        }
+      });
+    }
+
+    window.setupFocusTrap = setupFocusTrap;
+    document.querySelectorAll('dialog').forEach(setupFocusTrap);
+
+    var dialogObserver = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        mutation.addedNodes.forEach(function(node) {
+          if (node.nodeType === 1) {
+            if (node.tagName === 'DIALOG') setupFocusTrap(node);
+            if (node.querySelectorAll) node.querySelectorAll('dialog').forEach(setupFocusTrap);
+          }
+        });
+      });
+    });
+    dialogObserver.observe(document.body, { childList: true, subtree: true });
+  }());
+</script>
+
+<!-- fleet-method-guide:start -->
+<style>
+  .fleet-method-guide { box-sizing: border-box; flex: 0 0 auto; grid-column: 1 / -1; width: calc(100% - 2rem); max-width: 64rem; margin: 1rem auto; border: 1px solid currentColor; border-radius: .65rem; color: inherit; background: inherit; font: inherit; }
+  .fleet-method-guide > summary { cursor: pointer; padding: .75rem 1rem; min-height: 44px; box-sizing: border-box; font-weight: 600; overflow-wrap: anywhere; }
+  .fleet-method-guide > summary:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+  .fleet-method-guide .fleet-method-content { padding: 0 1rem 1rem; max-height: 50vh; overflow-y: auto; overscroll-behavior: contain; }
+  .fleet-method-guide p { margin: .5rem 0; line-height: 1.5; overflow-wrap: anywhere; }
+  .fleet-method-guide dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: .35rem; margin: .75rem 0 1rem; }
+  .fleet-method-guide dt { font-weight: 600; margin-top: .5rem; }
+  .fleet-method-guide dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+  @media print { .fleet-method-guide { display: none; } }
+</style>
+<details class="fleet-method-guide" data-project="sombras_do_capital">
+  <summary>Como conduzir esta atividade</summary>
+  <div class="fleet-method-content">
+    <p>Sombras do Capital</p>
+    <section aria-label="Para quem participa">
+      <p><strong>Para quem participa</strong></p>
+      <dl>
+        <dt>Propósito</dt><dd>Investigar episódios e construir argumentos a partir de documentos e fontes.</dd>
+        <dt>Ação</dt><dd>Explorar o terminal, conferir fontes e reunir evidências para justificar escolhas.</dd>
+        <dt>Fechamento</dt><dd>Revisar o relatório e relacionar cada conclusão às evidências selecionadas.</dd>
+      </dl>
+    </section>
+    <section aria-label="Para quem conduz a turma">
+      <p><strong>Para quem conduz a turma</strong></p>
+      <dl>
+        <dt>Propósito</dt><dd>Mediar investigação histórica e leitura crítica de fontes.</dd>
+        <dt>Ação</dt><dd>Acompanhar episódios, escolhas e evidências reunidas pela turma.</dd>
+        <dt>Fechamento</dt><dd>Comparar argumentos e retomar as questões que exigem novas fontes.</dd>
+      </dl>
+    </section>
+  </div>
+</details>
+<!-- fleet-method-guide:end -->

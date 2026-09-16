@@ -1,0 +1,172 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 19_SearchResults.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Resultados paginados de busca
+
+  PRINCIPAIS FUNCIONALIDADES
+  Exibe os registros retornados pelo comando de busca e encaminha a abertura do item.
+
+  CONTRATO DE FRONTEND
+  - Recebe `search:results` com uma lista ou com `{ results, query }`.
+  - Trata payload ausente, vazio ou parcial sem confundir estados.
+  - Insere dados remotos exclusivamente com textContent.
+  - Mantém paginação e navegação por teclado anunciáveis.
+-->
+<section data-component="19_SearchResults" aria-labelledby="search-results-heading" aria-describedby="search-results-status" aria-busy="false">
+  <h2 id="search-results-heading">Resultados de busca</h2>
+  <p id="search-query-label" class="search-query" hidden></p>
+  <p data-state="loading" id="search-results-loading" hidden role="status" aria-live="polite" aria-atomic="true">Consultando banco de dados investigativo…</p>
+  <p data-state="empty" id="search-results-empty" role="status" aria-live="polite" aria-atomic="true">Execute uma busca no terminal para ver resultados.</p>
+  <p data-state="no-results" id="search-results-no-results" hidden role="status" aria-live="polite" aria-atomic="true">Nenhum registro corresponde ao termo informado.</p>
+  <p data-state="error" id="search-results-status" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível exibir os resultados.</p>
+  <p id="search-results-count" class="results-count" hidden role="status" aria-live="polite" aria-atomic="true"></p>
+  <div data-slot="content" class="results-grid" aria-live="polite" aria-atomic="true"></div>
+  <nav class="pagination" aria-label="Paginação de resultados">
+    <button type="button" id="results-prev" aria-label="Ir para a página anterior" disabled>ANTERIOR</button>
+    <span id="results-page" role="status" aria-live="polite" aria-atomic="true" tabindex="-1">Página 1 de 1</span>
+    <button type="button" id="results-next" aria-label="Ir para a próxima página" disabled>PRÓXIMO</button>
+  </nav>
+</section>
+
+<style>
+  [data-component="19_SearchResults"] { padding: 24px; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "Courier New", monospace; }
+  [data-component="19_SearchResults"] h2 { margin: 0; font: 700 24px/1.2 Georgia, serif; }
+  [data-component="19_SearchResults"] .search-query { margin: 8px 0 0; color: var(--color-warning-amber); font-size: 10px; }
+  [data-component="19_SearchResults"] [data-state="loading"], [data-component="19_SearchResults"] [data-state="empty"], [data-component="19_SearchResults"] [data-state="no-results"] { color: #9eaaae; font-size: 11px; line-height: 1.5; }
+  [data-component="19_SearchResults"] [data-state="error"] { margin: 14px 0 0; padding: 10px; border-left: 2px solid var(--color-coral-red); color: #f0aaa2; font-size: 11px; line-height: 1.5; }
+  [data-component="19_SearchResults"] .results-count { margin: 16px 0 10px; color: var(--color-neon-cyan); font-size: 10px; letter-spacing: .08em; }
+  [data-component="19_SearchResults"] .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  [data-component="19_SearchResults"] .result { min-height: 142px; padding: 16px; border: 1px solid var(--color-slate-gray); color: var(--color-light-gray); background: var(--color-dark-graphite); text-align: left; cursor: pointer; }
+  [data-component="19_SearchResults"] .result:hover, [data-component="19_SearchResults"] .result:focus-visible { border-color: var(--color-neon-cyan); outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="19_SearchResults"] .result:disabled { cursor: not-allowed; opacity: .55; }
+  [data-component="19_SearchResults"] .badge { display: block; color: var(--color-neon-cyan); font-size: 10px; letter-spacing: .08em; }
+  [data-component="19_SearchResults"] strong { display: block; margin-top: 12px; font: 700 14px/1.3 Georgia, serif; }
+  [data-component="19_SearchResults"] small { display: block; margin-top: 9px; color: #9eaaae; line-height: 1.5; }
+  [data-component="19_SearchResults"] .result-note { display: block; margin-top: 9px; color: #b9c3c5; font-size: 10px; line-height: 1.45; }
+  [data-component="19_SearchResults"] .pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 18px; }
+  [data-component="19_SearchResults"] .pagination button { padding: 9px 11px; border: 1px solid var(--color-neon-cyan); color: var(--color-neon-cyan); background: transparent; font: 700 10px "Courier New", monospace; cursor: pointer; }
+  [data-component="19_SearchResults"] .pagination button:hover:not(:disabled), [data-component="19_SearchResults"] .pagination button:focus-visible { outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="19_SearchResults"] .pagination button:disabled { opacity: .4; cursor: not-allowed; }
+  [data-component="19_SearchResults"] #results-page { color: #d5dddf; font-size: 10px; }
+  @media (prefers-reduced-motion: reduce) { [data-component="19_SearchResults"] * { scroll-behavior: auto !important; } }
+</style>
+
+<script>(function() {
+  var root = document.querySelector('[data-component="19_SearchResults"]');
+  if (!root) return;
+  var content = root.querySelector('[data-slot="content"]');
+  var initialEmpty = root.querySelector('[data-state="empty"]');
+  var noResults = root.querySelector('[data-state="no-results"]');
+  var loading = root.querySelector('[data-state="loading"]');
+  var error = root.querySelector('[data-state="error"]');
+  var pageLabel = root.querySelector('#results-page');
+  var previous = root.querySelector('#results-prev');
+  var next = root.querySelector('#results-next');
+  var resultCount = root.querySelector('#search-results-count');
+  var queryLabel = root.querySelector('#search-query-label');
+  var results = [];
+  var page = 0;
+  var pageSize = 6;
+  var hasSearch = false;
+  var labels = { evidence: 'EVIDÊNCIA', scene: 'CENA', choice: 'DECISÃO', document: 'EVIDÊNCIA', audio: 'EVIDÊNCIA', spreadsheet: 'EVIDÊNCIA' };
+
+  function setBusy(busy) {
+    root.setAttribute('aria-busy', busy ? 'true' : 'false');
+    if (loading) loading.hidden = !busy;
+  }
+
+  function showError(message) {
+    setBusy(false);
+    hasSearch = true;
+    if (initialEmpty) initialEmpty.hidden = true;
+    if (noResults) noResults.hidden = true;
+    if (resultCount) resultCount.hidden = true;
+    if (error) {
+      error.textContent = message || 'Não foi possível exibir os resultados.';
+      error.hidden = false;
+      try { error.focus(); } catch (e) {}
+    }
+    if (content) content.textContent = '';
+    if (previous) previous.disabled = true;
+    if (next) next.disabled = true;
+  }
+
+  function normalizePayload(detail) {
+    if (Array.isArray(detail)) return { items: detail, query: '' };
+    if (detail && typeof detail === 'object') return { items: Array.isArray(detail.results) ? detail.results : [], query: detail.query || detail.term || '' };
+    return { items: [], query: '' };
+  }
+
+  function openResult(item) {
+    if (!item || !item.id) return;
+    var type = String(item.type || '').toLowerCase();
+    if (type === 'scene' || type === 'choice') {
+      window.location.hash = 'scene';
+      window.dispatchEvent(new CustomEvent('search:select', { detail: { id: String(item.id), type: type } }));
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('evidence:open', { detail: String(item.id) }));
+  }
+
+  function render(focusPageLabel) {
+    setBusy(false);
+    if (error) error.hidden = true;
+    if (content) content.textContent = '';
+    if (initialEmpty) initialEmpty.hidden = hasSearch;
+    if (noResults) noResults.hidden = !hasSearch || results.length > 0;
+    if (resultCount) {
+      resultCount.textContent = results.length + (results.length === 1 ? ' resultado encontrado' : ' resultados encontrados');
+      resultCount.hidden = !hasSearch || !results.length;
+    }
+    var totalPages = Math.max(1, Math.ceil(results.length / pageSize));
+    page = Math.max(0, Math.min(page, totalPages - 1));
+    if (pageLabel) pageLabel.textContent = 'Página ' + (page + 1) + ' de ' + totalPages;
+    if (previous) previous.disabled = !hasSearch || page === 0 || !results.length;
+    if (next) next.disabled = !hasSearch || page >= totalPages - 1 || !results.length;
+    results.slice(page * pageSize, page * pageSize + pageSize).forEach(function(item) {
+      item = item || {};
+      var id = String(item.id || '');
+      var type = String(item.type || 'record').toLowerCase();
+      var titleText = String(item.title || item.name || 'Registro sem título');
+      var card = document.createElement('button');
+      card.type = 'button'; card.className = 'result';
+      card.disabled = !id;
+      card.setAttribute('aria-label', 'Abrir ' + (labels[type] || 'registro') + ': ' + titleText);
+      var badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = '[' + (labels[type] || 'REGISTRO') + ']'; card.appendChild(badge);
+      var title = document.createElement('strong'); title.textContent = titleText; card.appendChild(title);
+      var excerpt = document.createElement('small'); excerpt.textContent = String(item.excerpt || 'Sem descrição disponível.'); card.appendChild(excerpt);
+      var note = document.createElement('span'); note.className = 'result-note'; note.textContent = [item.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA', item.natureNote || 'Requer revisão docente.'].join(' · '); card.appendChild(note);
+      card.addEventListener('click', function() { openResult(item); });
+      content.appendChild(card);
+    });
+    if (focusPageLabel && pageLabel) pageLabel.focus();
+  }
+
+  function receiveResults(detail) {
+    var payload = normalizePayload(detail);
+    hasSearch = true;
+    results = payload.items.filter(function(item) { return item && typeof item === 'object'; });
+    page = 0;
+    if (queryLabel) {
+      queryLabel.textContent = payload.query ? 'TERMO: ' + String(payload.query) : '';
+      queryLabel.hidden = !payload.query;
+    }
+    render();
+  }
+
+  window.addEventListener('search:loading', function() { setBusy(true); hasSearch = true; if (initialEmpty) initialEmpty.hidden = true; if (noResults) noResults.hidden = true; if (resultCount) resultCount.hidden = true; if (content) content.textContent = ''; });
+  window.addEventListener('search:error', function(event) { showError(event && event.detail ? String(event.detail) : 'Não foi possível exibir os resultados.'); });
+  window.addEventListener('search:results', function(event) { receiveResults(event && event.detail); });
+  window.addEventListener('search:clear', function() { hasSearch = false; results = []; page = 0; if (queryLabel) queryLabel.hidden = true; render(); });
+  if (previous) previous.addEventListener('click', function() { if (page > 0) { page--; render(true); } });
+  if (next) next.addEventListener('click', function() { var totalPages = Math.max(1, Math.ceil(results.length / pageSize)); if (page < totalPages - 1) { page++; render(true); } });
+  root.addEventListener('keydown', function(event) {
+    if (event.target !== root && !event.target.classList.contains('result')) return;
+    if (event.key === 'ArrowLeft' && previous && !previous.disabled) { event.preventDefault(); previous.click(); }
+    if (event.key === 'ArrowRight' && next && !next.disabled) { event.preventDefault(); next.click(); }
+    if (event.key === 'Home' && results.length) { event.preventDefault(); page = 0; render(true); }
+    if (event.key === 'End' && results.length) { event.preventDefault(); page = Math.ceil(results.length / pageSize) - 1; render(true); }
+  });
+  render();
+}());</script>

@@ -1,0 +1,214 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 00_GlobalStyles.html
+  Camada: Estilos CSS Globais
+  Tipo: Variáveis CSS e Reset Global
+
+  PALETA OFICIAL EXTRAÍDA
+  Baseada na arte conceitual Sombras_do_Capital.base64.txt
+  Paleta preparada para revisão de contraste; a presença destes estilos não é certificação WCAG.
+-->
+<style>
+:root {
+  /* === CORES PRIMÁRIAS (BACKGROUND E ESTRUTURA) === */
+  --color-deep-shadow: #0a0e11;      /* Background profundo */
+  --color-dark-graphite: #1a1f24;    /* Cards e painéis */
+  --color-charcoal: #2b3238;         /* Divisores e borders */
+  --color-slate-gray: #3d4650;       /* Texto secundário */
+  
+  /* === CORES DE DESTAQUE (EVIDÊNCIAS E INTERAÇÃO) === */
+  --color-neon-cyan: #5bc0de;        /* Principal - evidências confirmadas */
+  --color-electric-blue: #4a90e2;    /* Hover states e foco */
+  --color-bright-cyan: var(--color-neon-cyan);      /* Highlights críticos */
+  
+  /* === CORES DE ALERTA E STATUS === */
+  --color-warning-amber: #f0b35b;    /* Alertas e prazos */
+  --color-alert-orange: #e67e22;     /* Conflitos de dados */
+  --color-coral-red: #e27468;        /* Erros e fontes inválidas */
+  --color-success-green: #2ecc71;    /* Validações bem-sucedidas */
+  
+  /* === CORES DE TEXTO E UI === */
+  --color-pure-white: #ffffff;       /* Títulos principais */
+  --color-light-gray: #dbe2e4;       /* Texto principal */
+  --color-medium-gray: #9eaaae;      /* Texto secundário */
+  --color-muted-slate: #5a6670;      /* Texto desabilitado */
+  
+  /* === GRADIENTES FUNCIONAIS === */
+  --gradient-terminal: linear-gradient(135deg, var(--color-deep-shadow) 0%, var(--color-dark-graphite) 100%);
+  --gradient-evidence: linear-gradient(180deg, var(--color-dark-graphite) 0%, var(--color-charcoal) 100%);
+  --gradient-alert: linear-gradient(90deg, var(--color-warning-amber) 0%, var(--color-alert-orange) 100%);
+  --gradient-success: linear-gradient(90deg, var(--color-success-green) 0%, var(--color-neon-cyan) 100%);
+  
+  /* === SOMBRAS E PROFUNDIDADE === */
+  --shadow-card: 0 4px 12px rgba(10, 14, 17, 0.6);
+  --shadow-elevated: 0 8px 24px rgba(10, 14, 17, 0.8);
+  --shadow-focus: 0 0 0 3px rgba(91, 192, 222, 0.3);
+  --shadow-error: 0 0 0 3px rgba(226, 116, 104, 0.3);
+  --shadow-inset: inset 0 2px 8px rgba(10, 14, 17, 0.4);
+  
+  /* === TRANSIÇÕES PADRÃO === */
+  --transition-fast: 0.15s ease;
+  --transition-standard: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  
+  /* === TIPOGRAFIA === */
+  --font-mono: 'IBM Plex Mono', 'Courier New', 'Consolas', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+  
+  /* === ESPAÇAMENTO === */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  
+  /* === BORDAS === */
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  
+  /* === COMPATIBILIDADE COM VARIÁVEIS ANTIGAS === */
+  --td-bg: var(--color-deep-shadow);
+  --td-panel: var(--color-dark-graphite);
+  --td-card: var(--color-charcoal);
+  --td-line: var(--color-slate-gray);
+  --td-cyan: var(--color-neon-cyan);
+  --td-amber: var(--color-warning-amber);
+  --td-ink: var(--color-light-gray);
+  --td-muted: var(--color-medium-gray);
+  --td-green: var(--color-success-green);
+  --td-red: var(--color-coral-red);
+}
+
+/* === MODO ALTO CONTRASTE (WCAG AAA) === */
+@media (prefers-contrast: high) {
+  :root {
+    --color-deep-shadow: #000000;
+    --color-light-gray: #ffffff;
+    --color-neon-cyan: #00ffff;
+    --color-warning-amber: #ffcc00;
+    --color-coral-red: #ff0000;
+    --color-success-green: #00ff00;
+  }
+}
+
+.high-contrast {
+  --color-deep-shadow: #000000;
+  --color-dark-graphite: #1a1a1a;
+  --color-light-gray: #ffffff;
+  --color-neon-cyan: #00ffff;
+  --color-warning-amber: #ffcc00;
+  --color-coral-red: #ff0000;
+  --color-success-green: #00ff00;
+}
+
+/* === RESET GLOBAL === */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--color-deep-shadow);
+  color: var(--color-light-gray);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* === UTILITÁRIOS GLOBAIS === */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.text-cyan { color: var(--color-neon-cyan); }
+.text-amber { color: var(--color-warning-amber); }
+.text-red { color: var(--color-coral-red); }
+.text-green { color: var(--color-success-green); }
+.text-white { color: var(--color-pure-white); }
+.text-muted { color: var(--color-medium-gray); }
+
+.bg-terminal { background: var(--gradient-terminal); }
+.bg-evidence { background: var(--gradient-evidence); }
+.bg-panel { background: var(--color-dark-graphite); }
+
+/* === ANIMAÇÕES GLOBAIS === */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInBottom {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulseCyan {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.fade-in { animation: fadeIn var(--transition-standard); }
+.slide-in-bottom { animation: slideInBottom 0.4s ease-out; }
+.slide-in-right { animation: slideInRight 0.4s ease-out; }
+.pulse-cyan { animation: pulseCyan 1.5s ease-in-out infinite; }
+.shake-error { animation: shakeError 0.3s ease-out; }
+.spin { animation: spin 1s linear infinite; }
+
+/* O percurso continua completo sem movimento quando o usuário solicita redução. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+</style>
+<div data-component="00_GlobalStyles" role="presentation" aria-hidden="true" style="display:none;"></div>

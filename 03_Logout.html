@@ -1,0 +1,104 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 03_Logout.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Stub de tela e contrato inicial
+
+  PRINCIPAIS FUNCIONALIDADES
+  Saída.
+
+  INTEGRAÇÕES
+  Confirma encerramento e revoga sessão via SessionService.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO SCAFFOLD
+  O markup abaixo valida a composição e os estados mínimos da tela.
+  Substituí-lo por uma implementação produtiva exige teste de fluxo, teclado e responsividade.
+-->
+<?!= HtmlService.createHtmlOutputFromFile('00_GlobalStyles').getContent(); ?>
+
+<style>
+  [data-component="03_Logout"] { min-height: 100vh; display: grid; place-items: center; padding: 24px; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "Courier New", monospace; }
+  [data-component="03_Logout"] .logout-box { width: min(100%, 480px); padding: 30px; border: 1px solid var(--color-slate-gray); background: var(--color-dark-graphite); box-shadow: 12px 12px 0 #101517; }
+  [data-component="03_Logout"] h2 { margin-top: 0; font: 700 30px Georgia, serif; }
+  [data-component="03_Logout"] p { color: #9eaaae; line-height: 1.6; }
+  [data-component="03_Logout"] .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+  [data-component="03_Logout"] button { padding: 12px 15px; border: 1px solid var(--color-neon-cyan); color: #071011; background: var(--color-neon-cyan); font: 700 11px "Courier New", monospace; cursor: pointer; }
+  [data-component="03_Logout"] button.secondary { color: var(--color-neon-cyan); background: transparent; }
+  [data-component="03_Logout"] button:focus-visible { outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="03_Logout"] button:disabled { cursor: wait; opacity: .55; }
+  [data-component="03_Logout"] [data-state="loading"] { color: #d5dddf; }
+  [data-component="03_Logout"] [data-state="error"] { margin-top: 16px; padding: 10px; border-left: 2px solid var(--color-coral-red); color: #f0aaa2; font-size: 11px; }
+</style>
+<section data-component="03_Logout" aria-labelledby="logout-title" aria-describedby="logout-status logout-error" aria-busy="false"><div class="logout-box"><h2 id="logout-title">Encerrar investigação?</h2><p>O acesso será revogado neste dispositivo e você retornará à tela de entrada.</p><div class="actions"><button type="button" id="logout-confirm" aria-busy="false">ENCERRAR INVESTIGAÇÃO</button><button type="button" class="secondary" id="logout-cancel">RETOMAR TERMINAL</button></div><p data-state="loading" id="logout-status" hidden role="status" aria-live="polite" aria-atomic="true">Encerrando sessão…</p><p data-state="error" id="logout-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível encerrar a sessão.</p></div></section>
+<script>(function() {
+  var root = document.querySelector('[data-component="03_Logout"]'); if (!root) return;
+  var confirmButton = root.querySelector('#logout-confirm'); var cancelButton = root.querySelector('#logout-cancel'); var loading = root.querySelector('[data-state="loading"]'); var error = root.querySelector('[data-state="error"]'); var completed = false;
+  function clearState() {
+    window.currentSessionToken = null; window.currentUser = null; window.currentUserId = null;
+    try { window.localStorage.removeItem('sombras.session'); } catch (ignored) {}
+  }
+  function setBusy(busy, message) {
+    root.setAttribute('aria-busy', String(Boolean(busy)));
+    confirmButton.disabled = Boolean(busy);
+    cancelButton.disabled = Boolean(busy);
+    confirmButton.setAttribute('aria-busy', String(Boolean(busy)));
+    confirmButton.textContent = busy ? 'ENCERRANDO…' : 'ENCERRAR INVESTIGAÇÃO';
+    if (loading) {
+      if (message) loading.textContent = message;
+      loading.hidden = !busy;
+    }
+  }
+  function showError() {
+    error.hidden = false;
+    try { error.focus(); } catch (ignored) {}
+  }
+  cancelButton.addEventListener('click', function() { if (!completed) window.location.hash = 'terminal'; });
+  confirmButton.addEventListener('click', function() {
+    if (completed) return;
+    completed = true;
+    setBusy(true, 'Encerrando sessão…');
+    error.hidden = true;
+    var token = window.currentSessionToken || '';
+    function finish(response) {
+      if (response === false) {
+        completed = false;
+        setBusy(false);
+        showError();
+        return;
+      }
+      clearState();
+      setBusy(true, 'Sessão encerrada. Retornando à entrada…');
+      window.location.hash = 'login';
+    }
+    if (!token || !window.google || !google.script || !google.script.run) { finish(true); return; }
+    google.script.run.withSuccessHandler(finish).withFailureHandler(function() { finish(false); }).revokeSession(token);
+  });
+  confirmButton.focus();
+}());</script>
+</section>

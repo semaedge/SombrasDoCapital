@@ -1,0 +1,184 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 33_Help.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Central de ajuda navegável e acessível
+
+  PRINCIPAIS FUNCIONALIDADES
+  Ajuda e tutorial.
+
+  INTEGRAÇÕES
+  Explica controles, objetivos, checagem e regras de privacidade.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Tutorial organizado por tarefas, com busca local, índice de navegação, tópicos recolhíveis
+  e mensagens anunciáveis. Não exibe segredos de configuração ou credenciais.
+-->
+<section data-component="33_Help" aria-labelledby="help-heading" aria-describedby="help-description">
+  <style>
+    [data-component="33_Help"] { --help-bg: var(--color-deep-shadow); --help-panel: var(--color-dark-graphite); --help-card: #101618; --help-line: #293539; --help-cyan: var(--color-neon-cyan); --help-amber: var(--color-warning-amber); --help-muted: var(--color-medium-gray); max-width: 980px; margin: 0 auto; padding: 28px; color: var(--color-light-gray); background: var(--help-bg); font-family: "IBM Plex Mono", "Courier New", monospace; }
+    [data-component="33_Help"] *, [data-component="33_Help"] *::before, [data-component="33_Help"] *::after { box-sizing: border-box; }
+    [data-component="33_Help"] .help-header { padding-bottom: 20px; border-bottom: 1px solid var(--help-line); }
+    [data-component="33_Help"] .meta-tag { display: block; margin-bottom: 6px; color: var(--help-amber); font-size: 10px; letter-spacing: .14em; }
+    [data-component="33_Help"] h2 { margin: 0 0 8px; color: #fff; font: 700 clamp(24px, 3.5vw, 34px) Georgia, serif; }
+    [data-component="33_Help"] .help-intro { max-width: 66ch; margin: 0; color: var(--help-muted); font-size: 12px; line-height: 1.6; }
+    [data-component="33_Help"] .help-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 18px 0; }
+    [data-component="33_Help"] .search-field { display: grid; flex: 1 1 300px; gap: 6px; }
+    [data-component="33_Help"] .search-field label { color: #b9c7ca; font-size: 11px; }
+    [data-component="33_Help"] input[type="search"] { width: 100%; padding: 11px 12px; border: 1px solid var(--help-line); border-radius: 3px; color: #fff; background: #080c0d; font: 12px "IBM Plex Mono", monospace; }
+    [data-component="33_Help"] input[type="search"]:focus { border-color: var(--help-cyan); outline: 2px solid var(--help-cyan); outline-offset: 2px; }
+    [data-component="33_Help"] button { min-height: 38px; padding: 9px 13px; border: 1px solid var(--help-cyan); border-radius: 3px; color: var(--help-cyan); background: transparent; font: 700 11px "IBM Plex Mono", monospace; cursor: pointer; }
+    [data-component="33_Help"] button:hover, [data-component="33_Help"] button:focus-visible { background: rgba(104, 212, 208, .12); }
+    [data-component="33_Help"] button:focus-visible { outline: 2px solid var(--help-amber); outline-offset: 3px; }
+    [data-component="33_Help"] .help-status { min-height: 18px; margin: 0 0 16px; color: var(--help-muted); font-size: 11px; }
+    [data-component="33_Help"] .help-index { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    [data-component="33_Help"] .help-index button { min-height: 32px; padding: 6px 9px; border-color: var(--help-line); color: var(--help-muted); font-size: 10px; }
+    [data-component="33_Help"] .help-topics { display: grid; gap: 10px; }
+    [data-component="33_Help"] .help-topic { border: 1px solid var(--help-line); background: var(--help-panel); }
+    [data-component="33_Help"] .help-topic[open] { border-color: var(--help-cyan); }
+    [data-component="33_Help"] .help-topic summary { padding: 15px 17px; color: #fff; cursor: pointer; font: 700 14px Georgia, serif; list-style-position: inside; }
+    [data-component="33_Help"] .help-topic summary:focus-visible { outline: 2px solid var(--help-amber); outline-offset: -3px; }
+    [data-component="33_Help"] .help-topic summary::marker { color: var(--help-cyan); }
+    [data-component="33_Help"] .topic-body { padding: 0 17px 17px; color: #c2ced1; font-size: 12px; line-height: 1.65; }
+    [data-component="33_Help"] .topic-body p { margin: 0 0 10px; }
+    [data-component="33_Help"] .topic-body p:last-child { margin-bottom: 0; }
+    [data-component="33_Help"] .topic-body ul { margin: 8px 0 0; padding-left: 22px; }
+    [data-component="33_Help"] .topic-body li { margin: 5px 0; }
+    [data-component="33_Help"] .topic-body strong { color: var(--help-amber); }
+    [data-component="33_Help"] .help-no-results { margin: 0; padding: 16px; border-left: 3px solid var(--help-amber); color: var(--help-muted); background: var(--help-card); font-size: 11px; }
+    [data-component="33_Help"] .help-footer { margin-top: 20px; padding: 14px 16px; border-left: 3px solid var(--help-cyan); background: var(--help-card); color: var(--help-muted); font-size: 11px; line-height: 1.55; }
+    @media (max-width: 620px) { [data-component="33_Help"] { padding: 20px 16px; } [data-component="33_Help"] .help-tools { align-items: stretch; flex-direction: column; } [data-component="33_Help"] .help-tools button { width: 100%; } }
+    @media (prefers-reduced-motion: reduce) { [data-component="33_Help"] * { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; } }
+  </style>
+  <header class="help-header">
+    <span class="meta-tag">[ ORIENTAÇÃO // PERCURSO INVESTIGATIVO ]</span>
+    <h2 id="help-heading">Ajuda e tutorial</h2>
+    <p id="help-description" class="help-intro">Encontre instruções curtas para entrar, investigar, checar fontes e registrar decisões. O tutorial explica o uso pedagógico sem substituir a mediação do professor.</p>
+  </header>
+  <div class="help-tools">
+    <div class="search-field">
+      <label for="help-search">Buscar nos tópicos</label>
+      <input type="search" id="help-search" placeholder="Ex.: evidência, decisão, privacidade" autocomplete="off" aria-controls="help-topics" aria-describedby="help-status">
+    </div>
+    <button type="button" id="help-expand-all" aria-expanded="false">Expandir tópicos</button>
+  </div>
+  <p class="help-status" id="help-status" role="status" aria-live="polite" aria-atomic="true">Todos os tópicos estão disponíveis.</p>
+  <nav class="help-index" aria-label="Índice da ajuda">
+    <button type="button" data-help-target="help-start">Começar</button>
+    <button type="button" data-help-target="help-evidence">Checar fontes</button>
+    <button type="button" data-help-target="help-decisions">Registrar decisão</button>
+    <button type="button" data-help-target="help-report">Montar reportagem</button>
+    <button type="button" data-help-target="help-privacy">Privacidade</button>
+  </nav>
+  <div class="help-topics" id="help-topics">
+    <details class="help-topic" id="help-start" data-keywords="começar login terminal acesso sessão identificação senha">
+      <summary>Comece sua investigação</summary>
+      <div class="topic-body"><p>Entre com seu identificador e senha. No terminal, leia o objetivo da fase antes de abrir a cena.</p><ul><li>Leia a narrativa até o fim.</li><li>Abra as evidências e observe autoria, data e contexto.</li><li>Use o botão de retorno para revisar o que já foi salvo.</li></ul></div>
+    </details>
+    <details class="help-topic" id="help-evidence" data-keywords="evidência fonte checagem alegação documento busca">
+      <summary>Leia e cheque as fontes</summary>
+      <div class="topic-body"><p>Uma evidência sustenta uma alegação quando sua origem, contexto e limites podem ser explicados.</p><ul><li>Associe a fonte à alegação correspondente.</li><li>Compare documentos antes de concluir.</li><li>Registre incertezas quando os dados não forem suficientes.</li></ul></div>
+    </details>
+    <details class="help-topic" id="help-decisions" data-keywords="decisão escolha prazo publicar verificar velocidade rigor salvar">
+      <summary>Registre uma decisão com justificativa</summary>
+      <div class="topic-body"><p>Escolha uma ação somente depois de considerar o impacto e a qualidade da apuração. O tempo aparece como contexto; não é uma nota.</p><p>Depois de confirmar, confira o estado de salvamento antes de mudar de módulo.</p></div>
+    </details>
+    <details class="help-topic" id="help-report" data-keywords="reportagem relatório tese evidência reflexão devolutiva">
+      <summary>Monte a reportagem final</summary>
+      <div class="topic-body"><p>Organize título, tese e três evidências diferentes. Revise a coerência entre o que você afirma e o que os documentos sustentam.</p><p>A reflexão formativa ajuda a registrar o que mudou após novas evidências; ela orienta a conversa docente e não produz aprovação automática.</p></div>
+    </details>
+    <details class="help-topic" id="help-privacy" data-keywords="privacidade senha dados sessão segurança professor suporte">
+      <summary>Privacidade e suporte</summary>
+      <div class="topic-body"><p>Não compartilhe sua senha nem cole dados pessoais nas evidências. Se a sessão expirar, entre novamente pelo acesso oficial.</p><p>Em caso de dúvida sobre uma fonte, uma decisão ou um relatório, procure o professor responsável pela atividade.</p></div>
+    </details>
+  </div>
+  <p class="help-no-results" id="help-no-results" hidden>Nenhum tópico corresponde à busca. Tente outra palavra.</p>
+  <footer class="help-footer"><strong>Nota pedagógica:</strong> o terminal apoia investigação e revisão; a interpretação final, a devolutiva e qualquer decisão avaliativa dependem de mediação humana.</footer>
+</section>
+<script>
+(function() {
+  var root = document.querySelector('[data-component="33_Help"]');
+  if (!root) return;
+  var search = root.querySelector('#help-search');
+  var topics = Array.prototype.slice.call(root.querySelectorAll('.help-topic'));
+  var status = root.querySelector('#help-status');
+  var noResults = root.querySelector('#help-no-results');
+  var expandButton = root.querySelector('#help-expand-all');
+  var indexButtons = root.querySelectorAll('[data-help-target]');
+  var expanded = false;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function fold(text) {
+    return String(text || '').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function applySearch() {
+    var query = fold(search && search.value);
+    var visible = 0;
+    topics.forEach(function(topic) {
+      var haystack = fold((topic.textContent || '') + ' ' + (topic.getAttribute('data-keywords') || ''));
+      var matches = !query || haystack.indexOf(query) >= 0;
+      topic.hidden = !matches;
+      if (matches) {
+        visible += 1;
+        if (query) topic.open = true;
+      }
+    });
+    if (noResults) noResults.hidden = visible !== 0;
+    if (status) {
+      status.textContent = query
+        ? visible + ' tópico' + (visible === 1 ? '' : 's') + ' encontrado' + (visible === 1 ? '' : 's') + '.'
+        : 'Todos os tópicos estão disponíveis.';
+    }
+  }
+
+  if (search) search.addEventListener('input', applySearch);
+  if (expandButton) expandButton.addEventListener('click', function() {
+    expanded = !expanded;
+    topics.forEach(function(topic) { if (!topic.hidden) topic.open = expanded; });
+    expandButton.textContent = expanded ? 'Recolher tópicos' : 'Expandir tópicos';
+    expandButton.setAttribute('aria-expanded', String(expanded));
+    if (status) status.textContent = expanded ? 'Tópicos visíveis expandidos.' : 'Tópicos visíveis recolhidos.';
+  });
+  indexButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      var target = root.querySelector('#' + button.getAttribute('data-help-target'));
+      if (!target || target.hidden) {
+        if (search) { search.value = ''; applySearch(); }
+      }
+      target = root.querySelector('#' + button.getAttribute('data-help-target'));
+      if (!target) return;
+      target.open = true;
+      target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      var summary = target.querySelector('summary');
+      if (summary) summary.focus();
+    });
+  });
+}());
+</script>

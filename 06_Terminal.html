@@ -1,0 +1,468 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 06_Terminal.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Terminal investigativo implementado
+
+  PRINCIPAIS FUNCIONALIDADES
+  Tela do terminal.
+
+  INTEGRAÇÕES
+  Busca, comandos, arquivos recentes e alertas narrativos.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Implementação produtiva com menu de autocompletar dinâmico, chips interativos,
+  navegação por setas (Cima/Baixo), autocompletar por Tab e mensagem instrutiva.
+  Validado conforme o Prompt 57 do prompts.md.
+-->
+<?!= HtmlService.createHtmlOutputFromFile('00_GlobalStyles').getContent(); ?>
+
+<style>
+  [data-component="06_Terminal"] .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  [data-component="06_Terminal"] { min-height: 100vh; padding: 24px; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "IBM Plex Mono", "Courier New", monospace; box-sizing: border-box; }
+  [data-component="06_Terminal"] .terminal-window { max-width: 960px; margin: auto; border: 1px solid var(--color-slate-gray); background: var(--color-dark-graphite); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7); border-radius: 4px; overflow: hidden; }
+  [data-component="06_Terminal"] header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--color-slate-gray); background: #0f1416; }
+  [data-component="06_Terminal"] h2 { margin: 0; font: 700 20px Georgia, serif; color: #ffffff; }
+  [data-component="06_Terminal"] .signal { color: var(--color-neon-cyan); font-size: 10px; letter-spacing: .12em; }
+  
+  [data-component="06_Terminal"] .cmd-form-container {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-slate-gray);
+    background: #111719;
+    position: relative;
+  }
+
+  [data-component="06_Terminal"] form { display: flex; gap: 10px; }
+  [data-component="06_Terminal"] input {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid #354247;
+    color: var(--color-light-gray);
+    background: var(--color-deep-shadow);
+    font: 13px "IBM Plex Mono", "Courier New", monospace;
+    border-radius: 3px;
+    transition: border-color .15s ease;
+  }
+  [data-component="06_Terminal"] button[type="submit"] {
+    padding: 0 20px;
+    border: 1px solid var(--color-neon-cyan);
+    color: #071011;
+    background: var(--color-neon-cyan);
+    font: 700 11px "IBM Plex Mono", monospace;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s ease;
+  }
+  [data-component="06_Terminal"] input:focus { outline: 2px solid var(--color-neon-cyan); outline-offset: 1px; border-color: var(--color-neon-cyan); }
+  [data-component="06_Terminal"] button[type="submit"]:hover,
+  [data-component="06_Terminal"] button[type="submit"]:focus-visible { outline: 2px solid var(--color-warning-amber); outline-offset: 2px; background: #82ece8; }
+
+  /* Barra de Sugestões Dinâmicas (Chips) */
+  [data-component="06_Terminal"] .suggestions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(104, 212, 208, 0.2);
+    animation: suggestions-fade .15s ease-out;
+  }
+
+  [data-component="06_Terminal"] .suggestions-bar[hidden] {
+    display: none;
+  }
+
+  @keyframes suggestions-fade {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  [data-component="06_Terminal"] .suggestions-label {
+    font-size: 10px;
+    letter-spacing: .12em;
+    color: var(--color-warning-amber);
+    font-weight: 700;
+  }
+
+  [data-component="06_Terminal"] .suggestion-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    background: #182226;
+    border: 1px solid #2e4149;
+    color: var(--color-neon-cyan);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  [data-component="06_Terminal"] .suggestion-chip:hover,
+  [data-component="06_Terminal"] .suggestion-chip.chip-active {
+    background: #1e2f35;
+    border-color: var(--color-neon-cyan);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(104, 212, 208, 0.3);
+  }
+
+  [data-component="06_Terminal"] .suggestion-chip.chip-active {
+    outline: 2px solid var(--color-warning-amber);
+  }
+
+  [data-component="06_Terminal"] .output {
+    min-height: 280px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding: 20px;
+    color: #b9c3c5;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  [data-component="06_Terminal"] .prompt { color: var(--color-warning-amber); font-weight: 700; }
+  [data-component="06_Terminal"] .prompt-warning {
+    color: var(--color-warning-amber);
+    background: rgba(240, 179, 91, 0.1);
+    border-left: 3px solid var(--color-warning-amber);
+    padding: 8px 12px;
+    margin: 8px 0;
+    border-radius: 2px;
+  }
+  [data-component="06_Terminal"] .prompt-error {
+    color: #f7a8a0;
+    background: rgba(226, 116, 104, 0.1);
+    border-left: 3px solid var(--color-coral-red);
+    padding: 8px 12px;
+    margin: 8px 0;
+    border-radius: 2px;
+  }
+  [data-component="06_Terminal"] .search-hit {
+    padding: 8px 12px;
+    background: #111719;
+    border-left: 2px solid var(--color-neon-cyan);
+    margin: 6px 0;
+  }
+  @media (max-width: 580px) {
+    [data-component="06_Terminal"] { padding: 12px; }
+    [data-component="06_Terminal"] form { flex-direction: column; }
+    [data-component="06_Terminal"] button[type="submit"] { min-height: 42px; }
+  }
+</style>
+
+<section data-component="06_Terminal" aria-labelledby="terminal-heading">
+  <div class="terminal-window">
+    <header>
+      <h2 id="terminal-heading">Terminal Investigativo</h2>
+      <span class="signal">● LINK SEGURO // CONSÓRCIO 07</span>
+    </header>
+
+    <div class="cmd-form-container">
+      <form id="terminal-form">
+        <label for="terminal-command" class="sr-only">Comando de busca no terminal</label>
+        <input
+          id="terminal-command"
+          name="command"
+          placeholder="Digite um comando (ex: 'buscar doações' ou use Tab)..."
+          autocomplete="off"
+          maxlength="120"
+          required
+          aria-autocomplete="list"
+          aria-controls="terminal-suggestions"
+        >
+        <button type="submit">EXECUTAR</button>
+      </form>
+
+      <!-- Menu de sugestões dinâmicas com chips clicáveis (Prompt 57) -->
+      <div class="suggestions-bar" id="terminal-suggestions" hidden role="listbox" aria-label="Sugestões de autocompletar">
+        <span class="suggestions-label">SUGESTÕES [TAB]:</span>
+        <div id="suggestions-chips-container" style="display: inline-flex; flex-wrap: wrap; gap: 6px;"></div>
+      </div>
+    </div>
+
+    <div class="output" id="terminal-output" aria-live="polite">
+      <div><span class="prompt">analista@consorcio:~$</span> terminal pronto; a conexão será validada ao consultar.</div>
+      <div>Digite <code style="color: var(--color-neon-cyan);">buscar [termo]</code> para iniciar a apuração ou clique nas sugestões abaixo da linha de comando.</div>
+      <p data-state="loading" hidden role="status">Consultando registros…</p>
+      <p data-state="error" hidden role="alert">Não foi possível consultar o terminal.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="06_Terminal"]');
+  if (!root) return;
+
+  var form = root.querySelector('#terminal-form');
+  var input = root.querySelector('#terminal-command');
+  var output = root.querySelector('#terminal-output');
+  var suggestionsBar = root.querySelector('#terminal-suggestions');
+  var chipsContainer = root.querySelector('#suggestions-chips-container');
+  if (!form || !input || !output) return;
+
+  var lastResults = [];
+  var activeFilter = 'all';
+
+  // Catálogo de sugestões pré-definidas (Prompt 57)
+  var predefinedCommands = [
+    'buscar doações',
+    'buscar áudios',
+    'buscar contratos',
+    'buscar cerrar',
+    'buscar memorando',
+    'buscar delação'
+  ];
+
+  var activeSuggestionIndex = -1;
+  var currentMatches = [];
+
+  // 1. Menu de sugestões dinâmicas (chips clicáveis)
+  function updateSuggestions() {
+    var val = input.value.trim().toLowerCase();
+    chipsContainer.textContent = '';
+    activeSuggestionIndex = -1;
+
+    if (!val) {
+      suggestionsBar.hidden = true;
+      currentMatches = [];
+      return;
+    }
+
+    currentMatches = predefinedCommands.filter(function(cmd) {
+      return cmd.toLowerCase().indexOf(val) >= 0 || val.indexOf(cmd.toLowerCase().slice(0, 3)) >= 0;
+    });
+
+    if (!currentMatches.length) {
+      // Se digitou 'bus' ou 'b', exibe os principais
+      if (val === 'b' || val === 'bu' || val === 'bus') {
+        currentMatches = ['buscar doações', 'buscar áudios', 'buscar contratos', 'buscar cerrar'];
+      } else {
+        suggestionsBar.hidden = true;
+        return;
+      }
+    }
+
+    currentMatches.forEach(function(cmd, idx) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'suggestion-chip';
+      chip.setAttribute('role', 'option');
+      chip.setAttribute('aria-selected', 'false');
+      chip.textContent = cmd;
+
+      chip.addEventListener('click', function(e) {
+        e.preventDefault();
+        applyCommand(cmd);
+      });
+
+      chipsContainer.appendChild(chip);
+    });
+
+    suggestionsBar.hidden = false;
+  }
+
+  function applyCommand(cmdText) {
+    input.value = cmdText;
+    suggestionsBar.hidden = true;
+    currentMatches = [];
+    activeSuggestionIndex = -1;
+    input.focus();
+  }
+
+  // 2. Navegação por teclado: Setas (Cima/Baixo) e Autocompletar (Tab)
+  input.addEventListener('input', updateSuggestions);
+
+  input.addEventListener('keydown', function(e) {
+    if (suggestionsBar.hidden || !currentMatches.length) {
+      if (e.key === 'Tab') {
+        // Se pressionar Tab em campo vazio, sugere o primeiro
+        if (!input.value.trim()) {
+          e.preventDefault();
+          applyCommand('buscar doações');
+        }
+      }
+      return;
+    }
+
+    var chips = chipsContainer.querySelectorAll('.suggestion-chip');
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeSuggestionIndex = (activeSuggestionIndex + 1) % currentMatches.length;
+      highlightChip(chips);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeSuggestionIndex = (activeSuggestionIndex - 1 + currentMatches.length) % currentMatches.length;
+      highlightChip(chips);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      var targetCmd = (activeSuggestionIndex >= 0 && currentMatches[activeSuggestionIndex])
+        ? currentMatches[activeSuggestionIndex]
+        : currentMatches[0];
+      if (targetCmd) {
+        applyCommand(targetCmd);
+      }
+    } else if (e.key === 'Escape') {
+      suggestionsBar.hidden = true;
+      activeSuggestionIndex = -1;
+    }
+  });
+
+  function highlightChip(chips) {
+    chips.forEach(function(c, i) {
+      var isActive = (i === activeSuggestionIndex);
+      c.classList.toggle('chip-active', isActive);
+      c.setAttribute('aria-selected', String(isActive));
+      if (isActive) {
+        input.value = currentMatches[i];
+      }
+    });
+  }
+
+  // 3. Integração com a barra de ferramentas (receber comando da toolbar)
+  window.addEventListener('terminal:insert-command', function(event) {
+    if (event.detail && event.detail.command) {
+      input.value = event.detail.command;
+      input.focus();
+      suggestionsBar.hidden = true;
+      if (event.detail.autoExecute) {
+        form.dispatchEvent(new Event('submit'));
+      }
+    }
+  });
+
+  // Filtros
+  window.addEventListener('terminal:filter', function(event) {
+    activeFilter = event.detail || 'all';
+    renderResults(lastResults);
+  });
+
+  function renderResults(results) {
+    output.querySelectorAll('[data-search-result], [data-search-summary]').forEach(function(item) { item.remove(); });
+    var filtered = activeFilter === 'all' ? results : results.filter(function(item) { return item.type === activeFilter; });
+
+    var message = document.createElement('div');
+    message.dataset.searchSummary = 'true';
+    message.className = 'prompt';
+    message.textContent = filtered.length ? filtered.length + ' registro(s) encontrado(s).' : 'Nenhum registro encontrado para o filtro ativo.';
+    output.appendChild(message);
+
+    filtered.forEach(function(result) {
+      var item = document.createElement('div');
+      item.dataset.searchResult = 'true';
+      item.className = 'search-hit';
+      var typeLabel = document.createElement('strong');
+      typeLabel.style.color = 'var(--color-neon-cyan)';
+      typeLabel.textContent = '[' + String(result.type || 'EVIDÊNCIA').toUpperCase() + '] ';
+      item.appendChild(typeLabel);
+      item.appendChild(document.createTextNode(String(result.title || 'Resultado sem título')));
+      var nature = document.createElement('span');
+      nature.style.color = 'var(--color-warning-amber)';
+      nature.textContent = ' · ' + String(result.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA');
+      item.appendChild(nature);
+      if (result.excerpt) {
+        var excerpt = document.createElement('span');
+        excerpt.style.color = '#8fa0a6';
+        excerpt.textContent = ' — ' + String(result.excerpt);
+        item.appendChild(excerpt);
+      }
+      output.appendChild(item);
+    });
+
+    output.scrollTop = output.scrollHeight;
+  }
+
+  // 4. Execução e Mensagem Instrutiva para Comando Não Reconhecido
+  form.addEventListener('submit', function(event) {
+    event.preventDefault();
+    var rawCommand = input.value.trim();
+    if (!rawCommand) return;
+
+    suggestionsBar.hidden = true;
+    var line = document.createElement('div');
+    line.className = 'prompt';
+    line.textContent = 'analista@consorcio:~$ ' + rawCommand;
+    output.appendChild(line);
+
+    // Validação local e mensagem instrutiva imediata
+    var isSearchCommand = /^buscar\s+/i.test(rawCommand);
+    var searchTerm = rawCommand.replace(/^buscar\s*/i, '').trim();
+
+    if (!isSearchCommand || !searchTerm) {
+      var warning = document.createElement('div');
+      warning.className = 'prompt-warning';
+      warning.setAttribute('role', 'alert');
+      warning.innerHTML = '⚠️ <strong>Comando não identificado.</strong> Tente: <code>\'buscar [termo]\'</code> ou use os filtros acima.';
+      output.appendChild(warning);
+      input.value = '';
+      output.scrollTop = output.scrollHeight;
+      return;
+    }
+
+    var status = document.createElement('div');
+    status.className = 'search-hit';
+    status.textContent = 'Consultando banco de dados investigativo…';
+    output.appendChild(status);
+    input.value = '';
+
+    function handleResponse(response) {
+      status.remove();
+      if (!response || !response.ok) {
+        var error = document.createElement('div');
+        error.className = 'prompt-warning';
+        error.setAttribute('role', 'alert');
+        error.textContent = (response && response.error && response.error.message)
+          ? response.error.message
+          : "Comando não identificado. Tente: 'buscar [termo]' ou use os filtros acima";
+        output.appendChild(error);
+        output.scrollTop = output.scrollHeight;
+        return;
+      }
+
+      lastResults = response.data.results || [];
+      window.dispatchEvent(new CustomEvent('search:results', { detail: lastResults }));
+      renderResults(lastResults);
+    }
+
+    if (window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(handleResponse)
+        .withFailureHandler(function() {
+          handleResponse({ ok: false, error: { message: 'Falha de sincronização. Sua busca não foi confirmada; tente novamente.' } });
+        })
+        .executeTerminalCommand(rawCommand);
+    } else {
+      handleResponse({ ok: false, error: { message: 'Banco investigativo indisponível. A busca não foi registrada.' } });
+    }
+  });
+}());
+</script>

@@ -1,0 +1,222 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 02_Login.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Tela de autenticação implementada
+
+  PRINCIPAIS FUNCIONALIDADES
+  Tela de login.
+
+  INTEGRAÇÕES
+  Usuário e senha, mensagens acessíveis e chamada ao AuthService.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Formulário conectado a authenticateUser, com estados de carregamento, erro e sucesso.
+-->
+<?!= HtmlService.createHtmlOutputFromFile('00_GlobalStyles').getContent(); ?>
+
+<style>
+  [data-component="02_Login"] .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  [data-component="02_Login"] { min-height: 100vh; display: grid; place-items: center; padding: 24px; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "Courier New", monospace; }
+  [data-component="02_Login"] .login-box { width: min(100%, 430px); padding: 32px; border: 1px solid var(--color-slate-gray); background: var(--color-dark-graphite); box-shadow: 12px 12px 0 #101517; }
+  [data-component="02_Login"] .mark { color: var(--color-neon-cyan); font-size: 10px; letter-spacing: .14em; }
+  [data-component="02_Login"] h2 { margin: 12px 0 8px; font: 700 32px/1 Georgia, serif; }
+  [data-component="02_Login"] .intro, [data-component="02_Login"] .notice { color: #9eaaae; font-size: 12px; line-height: 1.6; }
+  [data-component="02_Login"] .mission { margin: 18px 0 0; padding: 12px; border-left: 2px solid var(--color-warning-amber); color: #d5dddf; font: 14px/1.5 Georgia, serif; }
+  [data-component="02_Login"] .quick-start { display: grid; gap: 5px; margin: 10px 0 0; padding-left: 20px; color: #9eaaae; font-size: 11px; line-height: 1.5; }
+  [data-component="02_Login"] form { display: grid; gap: 10px; margin-top: 26px; }
+  [data-component="02_Login"] label { color: #b9c3c5; font-size: 11px; }
+  [data-component="02_Login"] input { width: 100%; margin-top: 6px; padding: 12px; border: 1px solid #354247; color: var(--color-light-gray); background: var(--color-deep-shadow); font: 13px "Courier New", monospace; }
+  [data-component="02_Login"] input:focus { outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="02_Login"] button:focus-visible, [data-component="02_Login"] a:focus-visible { outline: 2px solid var(--color-warning-amber); outline-offset: 4px; }
+  [data-component="02_Login"] button { margin-top: 12px; padding: 13px; border: 1px solid var(--color-neon-cyan); color: #071011; background: var(--color-neon-cyan); font: 700 11px "Courier New", monospace; cursor: pointer; }
+  [data-component="02_Login"] button:disabled { cursor: wait; opacity: .55; }
+  [data-component="02_Login"] .resume-link { display: block; margin-top: 14px; color: var(--color-neon-cyan); font-size: 11px; text-align: center; }
+  [data-component="02_Login"] [data-state="error"] { margin: 14px 0 0; padding: 10px; border-left: 2px solid var(--color-coral-red); color: #f0aaa2; font-size: 11px; }
+</style>
+<section data-component="02_Login" aria-labelledby="login-title">
+  <div class="login-box">
+    <div class="mark">[ CONSÓRCIO // ACESSO RESTRITO ]</div>
+    <h2 id="login-title">Entrar no Terminal</h2>
+    <p class="intro">Identifique-se para retomar sua investigação. Sua sessão será protegida durante a atividade.</p>
+    <p class="mission"><strong>Hoje você vai:</strong></p>
+    <ol class="quick-start"><li>ler uma pista do caso;</li><li>escolher entre velocidade e checagem;</li><li>revisar a consequência da sua decisão.</li></ol>
+    <form id="login-form" aria-describedby="login-status login-error" aria-busy="false">
+      <label for="login-identifier">Usuário ou e-mail<input id="login-identifier" name="identifier" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" required maxlength="160"></label>
+      <label for="login-password">Senha<input id="login-password" name="password" type="password" autocomplete="current-password" enterkeyhint="go" required maxlength="160"></label>
+      <button type="submit" id="login-submit" aria-busy="false">ACESSAR AMBIENTE <span aria-hidden="true">→</span></button>
+    </form>
+    <a id="resume-link" class="resume-link" href="?page=01_Index#terminal" hidden>Continuar de onde parei →</a>
+    <p class="notice" data-state="loading" id="login-status" hidden role="status" aria-live="polite" aria-atomic="true">Verificando credenciais…</p>
+    <p data-state="error" id="login-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível autenticar. Verifique os dados e tente novamente.</p>
+  </div>
+</section>
+<script>
+  (function() {
+    var root = document.querySelector('[data-component="02_Login"]');
+    var form = root && root.querySelector('#login-form');
+    if (!form || !window.google || !google.script || !google.script.run) return;
+    var loading = root.querySelector('[data-state="loading"]');
+    var error = root.querySelector('[data-state="error"]');
+    var resumeLink = root.querySelector('#resume-link');
+    var submitButton = root.querySelector('#login-submit');
+    var identifierInput = form.elements.identifier;
+    var passwordInput = form.elements.password;
+    var idleButtonMarkup = 'ACESSAR AMBIENTE <span aria-hidden="true">→</span>';
+    var defaultError = 'Não foi possível autenticar. Verifique os dados e tente novamente.';
+
+    function setBusy(busy, message) {
+      form.setAttribute('aria-busy', String(Boolean(busy)));
+      if (submitButton) {
+        submitButton.disabled = Boolean(busy);
+        submitButton.setAttribute('aria-busy', String(Boolean(busy)));
+        submitButton.innerHTML = busy ? 'VERIFICANDO…' : idleButtonMarkup;
+      }
+      if (identifierInput) identifierInput.disabled = Boolean(busy);
+      if (passwordInput) passwordInput.disabled = Boolean(busy);
+      if (resumeLink) {
+        resumeLink.setAttribute('aria-disabled', String(Boolean(busy)));
+        if (busy) resumeLink.setAttribute('tabindex', '-1');
+        else resumeLink.removeAttribute('tabindex');
+      }
+      if (loading) {
+        if (message) loading.textContent = message;
+        loading.hidden = !busy;
+      }
+    }
+
+    function showError(message, moveFocus) {
+      error.textContent = message || defaultError;
+      error.hidden = false;
+      if (moveFocus) {
+        try { error.focus(); } catch (ignored) {}
+      }
+    }
+
+    function clearSavedSession() {
+      window.currentSessionToken = null;
+      window.currentUser = null;
+      window.currentUserId = null;
+      try { window.localStorage.removeItem('sombras.session'); } catch (ignored) {}
+      if (resumeLink) resumeLink.hidden = true;
+    }
+
+    try {
+      var savedSession = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+      if (savedSession && savedSession.token && savedSession.user && savedSession.user.id && resumeLink) {
+        resumeLink.hidden = false;
+      }
+    } catch (storageError) {}
+
+    function recoverRouteFailure() {
+      clearSavedSession();
+      setBusy(false);
+      showError('Não foi possível abrir o terminal. Tente entrar novamente.', true);
+    }
+
+    function navigateWithRouteTicket(sessionToken) {
+      if (!sessionToken) {
+        recoverRouteFailure();
+        return;
+      }
+      setBusy(true, 'Abrindo terminal seguro…');
+      error.hidden = true;
+      google.script.run.withSuccessHandler(function(ticketResponse) {
+        if (!ticketResponse || !ticketResponse.ok || !ticketResponse.data || !ticketResponse.data.ticket) {
+          recoverRouteFailure(); return;
+        }
+        var targetUrl = '?page=01_Index&route_ticket=' + encodeURIComponent(ticketResponse.data.ticket) + '#terminal';
+        try {
+          var target = new URL(window.location.href);
+          target.searchParams.set('page', '01_Index');
+          target.searchParams.set('route_ticket', ticketResponse.data.ticket);
+          target.hash = 'terminal';
+          targetUrl = target.toString();
+        } catch (ignored) {}
+        try {
+          if (window.top && window.top !== window) {
+            window.top.location.href = targetUrl;
+            return;
+          }
+        } catch (navigationError) {}
+        window.location.href = targetUrl;
+      }).withFailureHandler(function() {
+        recoverRouteFailure();
+      }).createRouteTicket(sessionToken);
+    }
+
+    if (resumeLink) {
+      resumeLink.addEventListener('click', function(event) {
+        event.preventDefault();
+        if (form.getAttribute('aria-busy') === 'true') return;
+        try {
+          var resumeSession = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+          if (resumeSession && resumeSession.token) {
+            setBusy(true, 'Retomando sessão segura…');
+            error.hidden = true;
+            navigateWithRouteTicket(resumeSession.token);
+            return;
+          }
+        } catch (storageError) {}
+        clearSavedSession();
+        setBusy(false);
+        showError('Sua sessão anterior não está mais disponível. Entre novamente.', true);
+      });
+    }
+
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+      if (form.getAttribute('aria-busy') === 'true') return;
+      if (!form.reportValidity()) return;
+      error.textContent = defaultError;
+      setBusy(true, 'Verificando credenciais…');
+      error.hidden = true;
+      google.script.run.withSuccessHandler(function(response) {
+        if (!response || !response.ok || !response.data || !response.data.user || !response.data.session || !response.data.session.token) {
+          setBusy(false);
+          showError(defaultError, true);
+          return;
+        }
+        var user = response.data.user;
+        var session = response.data.session;
+        window.currentUser = user;
+        window.currentUserId = user.id;
+        window.currentSessionToken = session.token;
+        try {
+          window.localStorage.setItem('sombras.session', JSON.stringify({ token: session.token, user: user }));
+        } catch (storageError) {}
+        setBusy(true, 'Sessão iniciada. Redirecionando para o terminal…');
+        navigateWithRouteTicket(session.token);
+      }).withFailureHandler(function() {
+        setBusy(false);
+        showError(defaultError, true);
+      }).authenticateUser(form.elements.identifier.value, form.elements.password.value);
+    });
+  }());
+</script>

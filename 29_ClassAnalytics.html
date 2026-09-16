@@ -1,0 +1,343 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 29_ClassAnalytics.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Componente Analítico Pedagógico
+
+  STATUS DA IMPLEMENTAÇÃO
+  Gráfico de barras horizontais conectado ao evento do painel docente, com percentuais
+  derivados de contagens confirmadas, estados de dados incompletos e leitura acessível.
+-->
+<section data-component="29_ClassAnalytics" aria-labelledby="analytics-chart-title" aria-describedby="analytics-chart-description" aria-busy="false">
+  <div class="analytics-card">
+    <div class="analytics-header">
+      <div>
+        <span class="analytics-tag">[ ANÁLISE DE DECISÕES // EPISÓDIO 01 ]</span>
+        <h3 id="analytics-chart-title">Distribuição de Escolhas Críticas</h3>
+      </div>
+      <span class="analytics-sample" id="analytics-sample-size">Amostra indisponível</span>
+    </div>
+
+    <p class="analytics-desc" id="analytics-chart-description">
+      Comparativo da tomada de decisão sob pressão no dilema inicial da apuração: publicação acelerada vs. checagem probatória.
+    </p>
+    <p id="analytics-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+
+    <!-- Gráfico em CSS Puro com Barras Horizontais -->
+    <div class="chart-container" role="region" aria-label="Gráfico de distribuição de escolhas críticas" aria-describedby="analytics-status">
+      <!-- Barra 1: Publicar Imediatamente -->
+      <div class="chart-row">
+        <div class="row-header">
+          <span class="choice-title">
+            <span class="choice-icon" aria-hidden="true">⚡</span> Publicar Imediatamente <small>(Prioriza Velocidade)</small>
+          </span>
+          <strong class="choice-percentage" id="pct-publish">—</strong>
+        </div>
+        <div class="bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Dados indisponíveis" id="prog-publish" aria-label="Porcentagem que publicou imediatamente">
+          <div class="bar-fill bar-amber" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Barra 2: Segurar e Checar Fontes -->
+      <div class="chart-row">
+        <div class="row-header">
+          <span class="choice-title">
+            <span class="choice-icon" aria-hidden="true">🔍</span> Segurar e Checar Fontes <small>(Prioriza Rigor Documental)</small>
+          </span>
+          <strong class="choice-percentage" id="pct-verify">—</strong>
+        </div>
+        <div class="bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Dados indisponíveis" id="prog-verify" aria-label="Porcentagem que segurou e checou fontes">
+          <div class="bar-fill bar-cyan" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insights Pedagógicos -->
+    <div class="chart-insight" id="chart-insight-box">
+      <span class="insight-label">INSIGHT PEDAGÓGICO:</span>
+      <p id="chart-insight-text">Carregando tendências da turma...</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="29_ClassAnalytics"] {
+    --ca-bg: #141a1d;
+    --ca-card: #0f1416;
+    --ca-line: #283539;
+    --ca-cyan: var(--color-neon-cyan);
+    --ca-amber: var(--color-warning-amber);
+    --ca-ink: var(--color-light-gray);
+    --ca-muted: var(--color-medium-gray);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="29_ClassAnalytics"] *,
+  [data-component="29_ClassAnalytics"] *::before,
+  [data-component="29_ClassAnalytics"] *::after { box-sizing: border-box; }
+
+  [data-component="29_ClassAnalytics"] .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  [data-component="29_ClassAnalytics"] .analytics-card {
+    background: var(--ca-bg);
+    border: 1px solid var(--ca-line);
+    border-radius: 4px;
+    padding: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  [data-component="29_ClassAnalytics"] .analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  [data-component="29_ClassAnalytics"] .analytics-tag {
+    color: var(--ca-cyan);
+    font-size: 10px;
+    letter-spacing: .12em;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  [data-component="29_ClassAnalytics"] h3 {
+    margin: 0;
+    font: 700 18px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="29_ClassAnalytics"] .analytics-sample {
+    font-size: 10px;
+    color: var(--ca-muted);
+    background: var(--ca-card);
+    padding: 4px 8px;
+    border: 1px solid var(--ca-line);
+    border-radius: 2px;
+  }
+
+  [data-component="29_ClassAnalytics"] .analytics-desc {
+    margin: 0 0 20px;
+    color: var(--ca-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  /* Barras Horizontais em CSS Puro */
+  [data-component="29_ClassAnalytics"] .chart-container {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+
+  [data-component="29_ClassAnalytics"] .chart-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  [data-component="29_ClassAnalytics"] .row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12px;
+  }
+
+  [data-component="29_ClassAnalytics"] .choice-title {
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  [data-component="29_ClassAnalytics"] .choice-title small {
+    color: var(--ca-muted);
+    font-size: 10px;
+  }
+
+  [data-component="29_ClassAnalytics"] .choice-percentage {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+  }
+
+  [data-component="29_ClassAnalytics"] .row-header #pct-publish {
+    color: var(--ca-amber);
+  }
+
+  [data-component="29_ClassAnalytics"] .row-header #pct-verify {
+    color: var(--ca-cyan);
+  }
+
+  [data-component="29_ClassAnalytics"] .bar-track {
+    height: 16px;
+    background: #0a0e10;
+    border: 1px solid var(--ca-line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  [data-component="29_ClassAnalytics"] .bar-track:focus-visible {
+    outline: 2px solid var(--ca-amber);
+    outline-offset: 3px;
+  }
+
+  [data-component="29_ClassAnalytics"] .bar-fill {
+    height: 100%;
+    transition: width 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 2px;
+  }
+
+  [data-component="29_ClassAnalytics"] .bar-amber {
+    background: linear-gradient(90deg, #c78d38, var(--color-warning-amber));
+    box-shadow: 0 0 10px rgba(240, 179, 91, 0.4);
+  }
+
+  [data-component="29_ClassAnalytics"] .bar-cyan {
+    background: linear-gradient(90deg, #3aa3a0, var(--color-neon-cyan));
+    box-shadow: 0 0 10px rgba(104, 212, 208, 0.4);
+  }
+
+  /* Box de Insight */
+  [data-component="29_ClassAnalytics"] .chart-insight {
+    background: var(--ca-card);
+    border-left: 3px solid var(--ca-cyan);
+    padding: 12px 16px;
+    border-radius: 2px;
+  }
+
+  [data-component="29_ClassAnalytics"] .insight-label {
+    font-size: 9px;
+    letter-spacing: .12em;
+    color: var(--ca-amber);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  [data-component="29_ClassAnalytics"] #chart-insight-text {
+    margin: 0;
+    font-size: 11px;
+    color: #c9d5d8;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 560px) {
+    [data-component="29_ClassAnalytics"] .analytics-card { padding: 18px; }
+    [data-component="29_ClassAnalytics"] .analytics-header { flex-direction: column; }
+    [data-component="29_ClassAnalytics"] .row-header { align-items: flex-start; flex-direction: column; gap: 4px; }
+    [data-component="29_ClassAnalytics"] .choice-title { align-items: flex-start; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="29_ClassAnalytics"] .bar-fill { transition: none; }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="29_ClassAnalytics"]');
+  if (!root) return;
+
+  var pctPublish = root.querySelector('#pct-publish');
+  var trackPublish = root.querySelector('#prog-publish');
+  var progPublish = root.querySelector('#prog-publish .bar-fill');
+  var pctVerify = root.querySelector('#pct-verify');
+  var trackVerify = root.querySelector('#prog-verify');
+  var progVerify = root.querySelector('#prog-verify .bar-fill');
+  var sampleSize = root.querySelector('#analytics-sample-size');
+  var insightText = root.querySelector('#chart-insight-text');
+  var status = root.querySelector('#analytics-status');
+
+  function finiteCount(value) {
+    var number = Number(value);
+    return isFinite(number) && !isNaN(number) && number >= 0 ? Math.floor(number) : null;
+  }
+
+  function clampPercentage(value) {
+    var number = Number(value);
+    return isFinite(number) && !isNaN(number) ? Math.max(0, Math.min(100, Math.round(number))) : null;
+  }
+
+  function setTrackState(track, fill, percentage, count, label) {
+    if (!track || !fill) return;
+    var available = percentage != null && count != null;
+    var safePercentage = available ? percentage : 0;
+    fill.style.width = safePercentage + '%';
+    track.setAttribute('aria-valuenow', String(safePercentage));
+    track.setAttribute('aria-valuetext', available ? safePercentage + '% (' + count + ' decisões)' : 'Dados indisponíveis');
+    track.setAttribute('aria-label', available ? label + ': ' + safePercentage + '% (' + count + ' decisões)' : label + ': dados indisponíveis');
+  }
+
+  function clearAnalytics(message) {
+    if (root) root.setAttribute('aria-busy', 'false');
+    if (sampleSize) sampleSize.textContent = 'Amostra indisponível';
+    if (pctPublish) pctPublish.textContent = '—';
+    if (pctVerify) pctVerify.textContent = '—';
+    setTrackState(trackPublish, progPublish, null, null, 'Porcentagem que publicou imediatamente');
+    setTrackState(trackVerify, progVerify, null, null, 'Porcentagem que segurou e checou fontes');
+    if (insightText) insightText.textContent = message || 'Aguardando dados confirmados da turma.';
+    if (status) status.textContent = message || 'Aguardando dados confirmados da turma.';
+  }
+
+  function updateAnalytics(criticalChoices, totalDecisions) {
+    if (!criticalChoices || typeof criticalChoices !== 'object' || !criticalChoices.publish || !criticalChoices.verify) {
+      clearAnalytics();
+      return;
+    }
+    var pubCount = finiteCount(criticalChoices.publish.count);
+    var verCount = finiteCount(criticalChoices.verify.count);
+    if (pubCount == null || verCount == null) {
+      clearAnalytics('Dados de escolhas inválidos ou incompletos.');
+      return;
+    }
+    var criticalTotal = pubCount + verCount;
+    var pubPercentage = criticalTotal ? Math.round(pubCount / criticalTotal * 100) : 0;
+    var verPercentage = criticalTotal ? Math.round(verCount / criticalTotal * 100) : 0;
+    var decisionCount = finiteCount(totalDecisions);
+    if (decisionCount == null) decisionCount = criticalTotal;
+    decisionCount = Math.max(decisionCount, criticalTotal);
+
+    if (root) root.setAttribute('aria-busy', 'false');
+    if (sampleSize) {
+      sampleSize.textContent = decisionCount === criticalTotal
+        ? 'Amostra: ' + decisionCount + ' decisões analisadas'
+        : 'Amostra: ' + decisionCount + ' decisões · ' + criticalTotal + ' escolhas críticas';
+    }
+    if (pctPublish) pctPublish.textContent = pubPercentage + '% (' + pubCount + ')';
+    if (pctVerify) pctVerify.textContent = verPercentage + '% (' + verCount + ')';
+    setTrackState(trackPublish, progPublish, pubPercentage, pubCount, 'Porcentagem que publicou imediatamente');
+    setTrackState(trackVerify, progVerify, verPercentage, verCount, 'Porcentagem que segurou e checou fontes');
+
+    var insight;
+    if (!criticalTotal) {
+      insight = 'Ainda não há escolhas críticas confirmadas para interpretar.';
+    } else if (verPercentage >= 50) {
+      insight = 'A maior parcela da turma (' + verPercentage + '%) segurou a publicação para auditar os documentos antes do furo.';
+    } else {
+      insight = 'A maior parcela da turma (' + pubPercentage + '%) priorizou o impacto imediato da notícia; retome os riscos de publicação sem checagem.';
+    }
+    if (insightText) insightText.textContent = insight;
+    if (status) status.textContent = 'Gráfico atualizado: ' + decisionCount + ' decisões analisadas.';
+  }
+
+  window.addEventListener('analytics:update', function(e) {
+    var detail = e.detail || {};
+    updateAnalytics(detail.criticalChoices, detail.decisionsCount);
+  });
+
+  clearAnalytics();
+}());
+</script>

@@ -1,0 +1,292 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 10_SceneViewer.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Visualizador de cena conectado ao backend
+
+  PRINCIPAIS FUNCIONALIDADES
+  Carrega a cena selecionada, apresenta sua natureza e conduz a leitura narrativa.
+
+  INTEGRAÇÕES
+  Consome getCurrentScene e getPlayerProfile para respeitar o conteúdo e a preferência
+  de velocidade da sessão autenticada.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Refletir a cena confirmada pelo servidor antes de liberar a leitura.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+-->
+<?!= HtmlService.createHtmlOutputFromFile('00_GlobalStyles').getContent(); ?>
+
+<style>
+  [data-component="10_SceneViewer"] { min-height: 100vh; padding: 28px; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "Courier New", monospace; }
+  [data-component="10_SceneViewer"] .scene { max-width: 820px; margin: auto; padding: clamp(24px, 5vw, 58px); border: 1px solid var(--color-slate-gray); background: var(--color-dark-graphite); }
+  [data-component="10_SceneViewer"] .meta { color: var(--color-warning-amber); font-size: 10px; letter-spacing: .12em; }
+  [data-component="10_SceneViewer"] .content-nature-label { margin: 10px 0 0; color: var(--color-warning-amber); font-size: 10px; line-height: 1.5; }
+  [data-component="10_SceneViewer"] .content-nature-label strong { letter-spacing: .08em; }
+  [data-component="10_SceneViewer"] .content-nature-note { color: #9eaaae; }
+  [data-component="10_SceneViewer"] h2 { margin: 14px 0 18px; font: 700 clamp(28px, 5vw, 44px)/1.05 Georgia, serif; }
+  [data-component="10_SceneViewer"] .narrative { min-height: 5.4em; color: #c0c9cb; font: 18px/1.7 Georgia, serif; }
+  [data-component="10_SceneViewer"] .source { margin-top: 28px; padding: 14px; border-left: 2px solid var(--color-neon-cyan); color: #9eaaae; font-size: 11px; line-height: 1.6; }
+  [data-component="10_SceneViewer"] .source, [data-component="10_SceneViewer"] #scene-continue { opacity: 0; transition: opacity .45s ease; }
+  [data-component="10_SceneViewer"] [data-ready="true"] { opacity: 1; }
+  [data-component="10_SceneViewer"] #skip-reading { margin-top: 14px; color: #9eaaae; background: transparent; border-color: #354247; font-size: 10px; }
+  [data-component="10_SceneViewer"] button { margin-top: 28px; padding: 12px 16px; border: 1px solid var(--color-neon-cyan); color: #071011; background: var(--color-neon-cyan); font: 700 11px "Courier New", monospace; cursor: pointer; }
+  [data-component="10_SceneViewer"] button:focus-visible { outline: 2px solid var(--color-warning-amber); outline-offset: 3px; }
+  [data-component="10_SceneViewer"] button:disabled { cursor: wait; opacity: .55; }
+  [data-component="10_SceneViewer"] [data-state="loading"] { color: #d5dddf; font-size: 11px; }
+  [data-component="10_SceneViewer"] [data-state="error"] { margin-top: 18px; padding: 12px; border-left: 2px solid var(--color-coral-red); color: #f0aaa2; font-size: 11px; line-height: 1.5; }
+  [data-component="10_SceneViewer"] #scene-retry { margin-top: 12px; color: var(--color-neon-cyan); background: transparent; border-color: var(--color-neon-cyan); }
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="10_SceneViewer"] .source, [data-component="10_SceneViewer"] #scene-continue { transition: none; }
+  }
+</style>
+
+<section data-component="10_SceneViewer" aria-labelledby="scene-title" aria-busy="true">
+  <article class="scene">
+    <div class="meta" id="scene-meta">CARREGANDO CENA…</div>
+    <p class="content-nature-label" id="scene-nature" hidden><strong id="scene-nature-label"></strong><span class="content-nature-note" id="scene-nature-note"></span></p>
+    <h2 id="scene-title">Carregando cena…</h2>
+    <p class="narrative" id="scene-narrative" aria-live="off" data-full-text=""></p>
+    <p class="source" id="scene-source"><strong id="scene-source-label">FONTE NÃO CONFIRMADA</strong><br><span id="scene-source-detail">Aguardando confirmação da origem…</span></p>
+    <button type="button" id="skip-reading" disabled>PULAR ANIMAÇÃO</button>
+    <button type="button" id="scene-continue" disabled>CONTINUAR LEITURA <span aria-hidden="true">→</span></button>
+    <p data-state="loading" id="scene-loading" role="status" aria-live="polite" aria-atomic="true">Carregando cena…</p>
+    <p data-state="error" id="scene-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível carregar a cena.</p>
+    <button type="button" id="scene-retry" hidden>TENTAR NOVAMENTE</button>
+  </article>
+</section>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="10_SceneViewer"]');
+  if (!root) return;
+
+  var card = root.querySelector('.scene');
+  var meta = root.querySelector('#scene-meta');
+  var nature = root.querySelector('#scene-nature');
+  var natureLabel = root.querySelector('#scene-nature-label');
+  var natureNote = root.querySelector('#scene-nature-note');
+  var title = root.querySelector('#scene-title');
+  var narrative = root.querySelector('#scene-narrative');
+  var source = root.querySelector('#scene-source');
+  var sourceLabel = root.querySelector('#scene-source-label');
+  var sourceDetail = root.querySelector('#scene-source-detail');
+  var loading = root.querySelector('#scene-loading');
+  var error = root.querySelector('#scene-error');
+  var retry = root.querySelector('#scene-retry');
+  var skip = root.querySelector('#skip-reading');
+  var continueButton = root.querySelector('#scene-continue');
+  if (!card || !title || !narrative || !source || !skip || !continueButton) return;
+
+  var fullText = '';
+  var index = 0;
+  var timer = null;
+  var finished = false;
+  var loaded = false;
+  var selectedSceneId = 'scene-01';
+  try {
+    selectedSceneId = String(window.localStorage.getItem('current_scene_id') || 'scene-01');
+  } catch (ignored) {}
+
+  function restoreSessionState() {
+    if (window.currentUserId) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.token || !saved.user || !saved.user.id) return '';
+      window.currentSessionToken = String(saved.token);
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (ignored) {
+      return '';
+    }
+  }
+
+  function setLoading(isLoading, message) {
+    root.setAttribute('aria-busy', String(Boolean(isLoading)));
+    if (loading) {
+      if (message) loading.textContent = message;
+      loading.hidden = !isLoading;
+    }
+  }
+
+  function resetReading() {
+    if (timer) window.clearTimeout(timer);
+    timer = null;
+    fullText = '';
+    index = 0;
+    finished = false;
+    loaded = false;
+    narrative.textContent = '';
+    narrative.setAttribute('aria-live', 'off');
+    source.dataset.ready = 'false';
+    continueButton.dataset.ready = 'false';
+    continueButton.disabled = true;
+    continueButton.innerHTML = 'CONTINUAR LEITURA <span aria-hidden="true">→</span>';
+    skip.disabled = true;
+    skip.hidden = false;
+  }
+
+  function showError(message) {
+    setLoading(false);
+    if (error) {
+      error.textContent = message || 'Não foi possível carregar a cena.';
+      error.hidden = false;
+      try { error.focus(); } catch (ignored) {}
+    }
+    if (retry) retry.hidden = false;
+  }
+
+  function finish() {
+    if (finished || !loaded) return;
+    finished = true;
+    if (timer) window.clearTimeout(timer);
+    timer = null;
+    narrative.textContent = fullText;
+    narrative.setAttribute('aria-live', 'polite');
+    source.dataset.ready = 'true';
+    continueButton.dataset.ready = 'true';
+    continueButton.disabled = false;
+    skip.hidden = true;
+    continueButton.focus();
+  }
+
+  function typeNext(speed) {
+    if (finished) return;
+    narrative.textContent = fullText.slice(0, index++);
+    if (index > fullText.length) {
+      finish();
+      return;
+    }
+    timer = window.setTimeout(function() { typeNext(speed); }, Math.max(8, 38 / speed));
+  }
+
+  function startReading(speed) {
+    if (!fullText) {
+      showError('A cena foi confirmada, mas não trouxe uma narrativa para leitura.');
+      return;
+    }
+    index = 0;
+    finished = false;
+    continueButton.disabled = false;
+    skip.disabled = false;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      finish();
+      return;
+    }
+    typeNext(Math.max(0.5, Number(speed) || 1));
+  }
+
+  function loadTypingSpeed() {
+    if (!window.google || !google.script || !google.script.run || !window.currentUserId) {
+      startReading(1);
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(function(response) {
+        var preferences = response && response.ok && response.data && response.data.preferences;
+        startReading(preferences ? Number(preferences.typingSpeed) || 1 : 1);
+      })
+      .withFailureHandler(function() { startReading(1); })
+      .getPlayerProfile(String(window.currentUserId));
+  }
+
+  function renderScene(data) {
+    var payload = data || {};
+    fullText = String(payload.narrative || '').trim();
+    if (!fullText) {
+      showError('A cena foi confirmada, mas não trouxe uma narrativa para leitura.');
+      return;
+    }
+
+    var phaseLabel = String(payload.phase || payload.episode || 'INVESTIGAÇÃO');
+    var position = Number(payload.position) || 1;
+    meta.textContent = phaseLabel.toUpperCase() + ' // CENA ' + String(position).padStart(2, '0');
+    title.textContent = String(payload.title || 'Cena sem título');
+
+    var natureText = String(payload.contentNatureLabel || '').trim();
+    if (nature && natureLabel) {
+      natureLabel.textContent = natureText;
+      nature.hidden = !natureText;
+      if (natureNote) natureNote.textContent = payload.natureNote ? ' · ' + String(payload.natureNote) : '';
+    }
+
+    sourceLabel.textContent = String(payload.sourceTitle || payload.sender || 'FONTE NÃO INFORMADA');
+    var sourceText = String(payload.source || payload.sourceOrganization || 'Origem não informada.');
+    if (payload.source && payload.sourceOrganization) sourceText += ' · ' + String(payload.sourceOrganization);
+    sourceDetail.textContent = sourceText;
+    narrative.dataset.fullText = fullText;
+    loaded = true;
+    setLoading(false);
+    if (error) error.hidden = true;
+    if (retry) retry.hidden = true;
+    loadTypingSpeed();
+  }
+
+  function loadScene() {
+    resetReading();
+    setLoading(true, 'Carregando cena confirmada…');
+    if (error) error.hidden = true;
+    if (retry) retry.hidden = true;
+
+    var userId = restoreSessionState();
+    if (!userId) {
+      showError('Sua sessão não está ativa. Entre novamente para abrir esta cena.');
+      return;
+    }
+    if (!window.google || !google.script || !google.script.run) {
+      showError('Servidor indisponível. A cena não foi confirmada.');
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (!response || !response.ok || !response.data) {
+          showError(response && response.error && response.error.message
+            ? response.error.message
+            : 'Não foi possível confirmar esta cena.');
+          return;
+        }
+        renderScene(response.data);
+      })
+      .withFailureHandler(function() {
+        showError('Falha de sincronização. A cena não foi confirmada; tente novamente.');
+      })
+      .getCurrentScene(userId, selectedSceneId);
+  }
+
+  skip.addEventListener('click', finish);
+  card.addEventListener('click', function(event) {
+    if (!loaded || event.target === continueButton || event.target === skip) return;
+    finish();
+  });
+  continueButton.addEventListener('click', function() {
+    if (!loaded) return;
+    if (!finished) finish();
+    continueButton.textContent = 'CENA PRONTA PARA ESCOLHA';
+    continueButton.disabled = true;
+    window.dispatchEvent(new CustomEvent('scene:ready', { detail: { sceneId: selectedSceneId } }));
+  });
+  if (retry) retry.addEventListener('click', loadScene);
+  window.addEventListener('phase:selected', function(event) {
+    var nextSceneId = event.detail && event.detail.sceneId ? String(event.detail.sceneId) : '';
+    if (!nextSceneId || nextSceneId === selectedSceneId) return;
+    selectedSceneId = nextSceneId;
+    loadScene();
+  });
+
+  loadScene();
+}());
+</script>

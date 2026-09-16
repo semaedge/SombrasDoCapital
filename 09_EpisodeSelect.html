@@ -1,0 +1,482 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 09_EpisodeSelect.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Implementação produtiva com desbloqueio dinâmico
+
+  PRINCIPAIS FUNCIONALIDADES
+  Seleção de fases com sistema de desbloqueio progressivo.
+
+  INTEGRAÇÕES
+  Apresenta as cinco fases e seus estados de desbloqueio baseado no progresso do jogador.
+  Implementa Prompt 78: motor de desbloqueio automático.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva com desbloqueio automático de fases conforme progresso.
+  Validado conforme Prompt 78 do prompts.md.
+-->
+<section data-component="09_EpisodeSelect" aria-labelledby="episode-select-title">
+  <div class="episode-container">
+    <header class="episode-header">
+      <span class="episode-badge">[ MAPA DE INVESTIGAÇÃO // 5 FASES ]</span>
+      <h2 id="episode-select-title">Linha de Progressão Narrativa</h2>
+      <p class="episode-lead">Avance pela investigação fase a fase. Cada conclusão desbloqueia a próxima etapa do caso.</p>
+    </header>
+    
+    <p data-state="loading" class="state-msg" role="status">
+      <span class="loading-spinner" aria-hidden="true"></span>
+      Carregando fases e verificando progresso…
+    </p>
+    
+    <p data-state="error" class="state-msg error" hidden role="alert">
+      Não foi possível carregar as fases. Tente recarregar a página.
+    </p>
+    
+    <div data-slot="content" class="episode-grid" aria-live="polite"></div>
+    
+    <div class="episode-progress-summary" id="progress-summary" hidden>
+      <span class="summary-label">PROGRESSO TOTAL:</span>
+      <strong id="progress-count">0 / 5</strong>
+      <span class="summary-desc">fases concluídas</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="09_EpisodeSelect"] {
+    --ep-bg: var(--color-deep-shadow);
+    --ep-panel: var(--color-dark-graphite);
+    --ep-card: #111719;
+    --ep-line: #293539;
+    --ep-cyan: var(--color-neon-cyan);
+    --ep-amber: var(--color-warning-amber);
+    --ep-red: var(--color-coral-red);
+    --ep-ink: var(--color-light-gray);
+    --ep-muted: var(--color-medium-gray);
+    padding: 28px clamp(20px, 4vw, 56px);
+    color: var(--ep-ink);
+    background: var(--ep-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+  
+  [data-component="09_EpisodeSelect"] * {
+    box-sizing: border-box;
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode-header {
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--ep-line);
+    padding-bottom: 20px;
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode-badge {
+    color: var(--ep-cyan);
+    font-size: 10px;
+    letter-spacing: .14em;
+    display: block;
+    margin-bottom: 6px;
+  }
+  
+  [data-component="09_EpisodeSelect"] h2 {
+    margin: 4px 0 10px;
+    font: 700 clamp(26px, 4vw, 34px)/1.1 Georgia, serif;
+    color: #ffffff;
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode-lead {
+    margin: 0;
+    color: var(--ep-muted);
+    font-size: 13px;
+    line-height: 1.55;
+    max-width: 65ch;
+  }
+  
+  /* Estados de loading e erro */
+  [data-component="09_EpisodeSelect"] .state-msg {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--ep-panel);
+    border-left: 3px solid var(--ep-cyan);
+    font-size: 12px;
+    margin: 20px 0;
+  }
+  
+  [data-component="09_EpisodeSelect"] .state-msg.error {
+    border-left-color: var(--ep-red);
+    color: #f7a8a0;
+  }
+  
+  [data-component="09_EpisodeSelect"] .loading-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--ep-cyan);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Grid de fases */
+  [data-component="09_EpisodeSelect"] .episode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+    margin: 28px 0;
+  }
+  
+  /* Card de fase individual */
+  [data-component="09_EpisodeSelect"] .episode {
+    position: relative;
+    min-height: 160px;
+    padding: 22px 20px;
+    border: 1px solid var(--ep-line);
+    background: var(--ep-panel);
+    text-align: left;
+    cursor: pointer;
+    transition: all .2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode:hover:not([data-state="locked"]) {
+    border-color: var(--ep-cyan);
+    background: #1a2023;
+    box-shadow: 0 0 20px rgba(104, 212, 208, 0.15);
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode:focus-visible {
+    outline: 2px solid var(--ep-amber);
+    outline-offset: 3px;
+  }
+  
+  /* Estado: Ativa */
+  [data-component="09_EpisodeSelect"] .episode[data-state="active"] {
+    border-color: var(--ep-amber);
+    border-width: 2px;
+    box-shadow: 0 0 16px rgba(240, 179, 91, 0.2);
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode[data-state="active"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--ep-amber), var(--ep-cyan));
+  }
+  
+  /* Estado: Aberta */
+  [data-component="09_EpisodeSelect"] .episode[data-state="open"] {
+    border-color: var(--ep-cyan);
+  }
+  
+  /* Estado: Bloqueada */
+  [data-component="09_EpisodeSelect"] .episode[data-state="locked"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #0d1214;
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode[data-state="locked"]:hover {
+    border-color: var(--ep-line);
+    background: #0d1214;
+    box-shadow: none;
+  }
+  
+  /* Número da fase */
+  [data-component="09_EpisodeSelect"] .episode-number {
+    font-size: 11px;
+    color: var(--ep-cyan);
+    letter-spacing: .08em;
+    font-weight: 700;
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode[data-state="locked"] .episode-number {
+    color: var(--ep-muted);
+  }
+  
+  /* Título da fase */
+  [data-component="09_EpisodeSelect"] .episode-title {
+    display: block;
+    font: 700 20px/1.2 Georgia, serif;
+    color: #ffffff;
+    margin: 4px 0;
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode[data-state="locked"] .episode-title {
+    color: var(--ep-muted);
+  }
+  
+  /* Subtítulo */
+  [data-component="09_EpisodeSelect"] .episode-subtitle {
+    display: block;
+    font-size: 12px;
+    color: #b9c7cc;
+    line-height: 1.45;
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+  
+  /* Status label */
+  [data-component="09_EpisodeSelect"] .episode-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+    font-size: 10px;
+    letter-spacing: .08em;
+    font-weight: 700;
+    border-top: 1px solid var(--ep-line);
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode[data-state="active"] .episode-status {
+    color: var(--ep-amber);
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode[data-state="open"] .episode-status {
+    color: var(--ep-cyan);
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode[data-state="locked"] .episode-status {
+    color: var(--ep-muted);
+  }
+  
+  /* Ícone de cadeado neon (Prompt 78.3) */
+  [data-component="09_EpisodeSelect"] .lock-icon {
+    display: inline-block;
+    font-size: 14px;
+    filter: drop-shadow(0 0 6px var(--ep-amber));
+  }
+  
+  /* Mensagem de bloqueio (Prompt 78.3) */
+  [data-component="09_EpisodeSelect"] .lock-message {
+    display: block;
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: rgba(226, 116, 104, 0.08);
+    border: 1px dashed var(--ep-red);
+    border-radius: 3px;
+    font-size: 11px;
+    color: #f7a8a0;
+    line-height: 1.4;
+  }
+  
+  /* Resumo de progresso */
+  [data-component="09_EpisodeSelect"] .episode-progress-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 22px;
+    background: var(--ep-panel);
+    border: 1px solid var(--ep-line);
+    border-radius: 4px;
+    margin-top: 28px;
+  }
+  
+  [data-component="09_EpisodeSelect"] .summary-label {
+    font-size: 10px;
+    letter-spacing: .12em;
+    color: var(--ep-muted);
+  }
+  
+  [data-component="09_EpisodeSelect"] .episode-progress-summary strong {
+    font-size: 20px;
+    color: var(--ep-cyan);
+    font-weight: 700;
+  }
+  
+  [data-component="09_EpisodeSelect"] .summary-desc {
+    font-size: 11px;
+    color: var(--ep-muted);
+  }
+  
+  @media (max-width: 640px) {
+    [data-component="09_EpisodeSelect"] .episode-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="09_EpisodeSelect"]');
+  if (!root) return;
+
+  var loading = root.querySelector('[data-state="loading"]');
+  var error = root.querySelector('[data-state="error"]');
+  var content = root.querySelector('[data-slot="content"]');
+  var progressSummary = root.querySelector('#progress-summary');
+  var progressCount = root.querySelector('#progress-count');
+
+  function renderPhases(data) {
+    if (!content) return;
+    content.innerHTML = '';
+    if (!data || !Array.isArray(data.phases)) {
+      var unavailable = document.createElement('p');
+      unavailable.className = 'state-msg';
+      unavailable.textContent = 'O servidor não devolveu um progresso válido para esta sessão.';
+      content.appendChild(unavailable);
+      if (progressSummary) progressSummary.hidden = true;
+      return;
+    }
+    
+    var phases = data.phases;
+    var completedCount = data.completedCount || 0;
+    var totalPhases = data.totalPhases || phases.length;
+    
+    phases.forEach(function(phase) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'episode';
+      button.dataset.state = phase.state || 'locked';
+      button.dataset.phaseId = phase.id || '';
+      button.dataset.sceneId = phase.sceneId || '';
+      
+      if (phase.isLocked) {
+        button.disabled = true;
+        button.setAttribute('aria-disabled', 'true');
+      }
+      
+      var number = document.createElement('span');
+      number.className = 'episode-number';
+      number.textContent = 'FASE ' + String(phase.number).padStart(2, '0');
+      button.appendChild(number);
+      
+      var title = document.createElement('strong');
+      title.className = 'episode-title';
+      title.textContent = phase.title || 'Fase sem título';
+      button.appendChild(title);
+      
+      var subtitle = document.createElement('span');
+      subtitle.className = 'episode-subtitle';
+      subtitle.textContent = phase.subtitle || '';
+      button.appendChild(subtitle);
+      
+      var status = document.createElement('span');
+      status.className = 'episode-status';
+      
+      if (phase.isLocked) {
+        var lockIcon = document.createElement('span');
+        lockIcon.className = 'lock-icon';
+        lockIcon.setAttribute('aria-hidden', 'true');
+        lockIcon.textContent = '🔒';
+        status.appendChild(lockIcon);
+        
+        var statusText = document.createElement('span');
+        statusText.textContent = 'BLOQUEADA';
+        status.appendChild(statusText);
+        
+        var lockMsg = document.createElement('small');
+        lockMsg.className = 'lock-message';
+        lockMsg.textContent = 'Requer conclusão da fase anterior';
+        button.appendChild(lockMsg);
+        
+      } else if (phase.isActive) {
+        status.textContent = '▶ ATIVA AGORA';
+      } else if (phase.isCompleted) {
+        status.textContent = '✓ CONCLUÍDA';
+      } else {
+        status.textContent = '◈ ABERTA';
+      }
+      
+      button.appendChild(status);
+      
+      button.addEventListener('click', function() {
+        if (!button.disabled && phase.sceneId) {
+          try {
+            window.localStorage.setItem('current_scene_id', phase.sceneId);
+          } catch (e) {}
+          
+          window.location.hash = 'scene';
+          
+          window.dispatchEvent(new CustomEvent('phase:selected', {
+            detail: {
+              phaseId: phase.id,
+              phaseName: phase.title,
+              sceneId: phase.sceneId
+            }
+          }));
+        }
+      });
+      
+      content.appendChild(button);
+    });
+
+    if (!phases.length) {
+      var empty = document.createElement('p');
+      empty.className = 'state-msg';
+      empty.textContent = 'Nenhuma fase foi confirmada para esta sessão.';
+      content.appendChild(empty);
+    }
+    
+    if (progressSummary && progressCount) {
+      progressCount.textContent = completedCount + ' / ' + totalPhases;
+      progressSummary.hidden = false;
+    }
+  }
+
+  function loadPhases() {
+    if (loading) loading.hidden = false;
+    if (error) error.hidden = true;
+    if (content) content.innerHTML = '';
+
+    var userId = window.currentUserId || '';
+
+    if (window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (loading) loading.hidden = true;
+          
+          if (!response || !response.ok) {
+            if (error) {
+              error.textContent = (response && response.error && response.error.message) || 
+                                   'Não foi possível carregar as fases.';
+              error.hidden = false;
+            }
+            return;
+          }
+          
+          renderPhases(response.data);
+        })
+        .withFailureHandler(function() {
+          if (loading) loading.hidden = true;
+          if (error) {
+            error.textContent = 'Falha de sincronização. As fases não foram confirmadas; tente novamente.';
+            error.hidden = false;
+          }
+        })
+        .getPhases(userId);
+    } else {
+      if (loading) loading.hidden = true;
+      if (error) {
+        error.textContent = 'Servidor indisponível. O progresso não foi confirmado.';
+        error.hidden = false;
+      }
+    }
+  }
+
+  loadPhases();
+  
+  window.addEventListener('route:changed', function(e) {
+    if (e.detail && e.detail.route === 'phases') {
+      loadPhases();
+    }
+  });
+}());
+</script>

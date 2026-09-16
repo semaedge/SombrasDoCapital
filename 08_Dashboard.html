@@ -1,0 +1,205 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 08_Dashboard.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Stub de tela e contrato inicial
+
+  PRINCIPAIS FUNCIONALIDADES
+  Painel do jogador.
+
+  INTEGRAÇÕES
+  Resumo de progresso, rigor ético, evidências e próximas tarefas.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO SCAFFOLD
+  O markup abaixo valida a composição e os estados mínimos da tela.
+  Substituí-lo por uma implementação produtiva exige teste de fluxo, teclado e responsividade.
+-->
+<section data-component="08_Dashboard">
+  <h2>Painel do jogador</h2>
+  <style>
+    [data-component="08_Dashboard"] { min-height: 100vh; padding: 28px; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "Courier New", monospace; }
+    [data-component="08_Dashboard"] .dashboard { max-width: 900px; margin: auto; }
+    [data-component="08_Dashboard"] .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 22px 0; }
+    [data-component="08_Dashboard"] .metric, [data-component="08_Dashboard"] .open-files { padding: 18px; border: 1px solid var(--color-slate-gray); background: var(--color-dark-graphite); }
+    [data-component="08_Dashboard"] .metric span, [data-component="08_Dashboard"] small { display: block; color: #9eaaae; font-size: 10px; }
+    [data-component="08_Dashboard"] strong { display: block; margin-top: 8px; font-size: 24px; font-weight: 400; }
+    [data-component="08_Dashboard"] .metric:nth-child(2) strong { color: var(--color-warning-amber); }
+    [data-component="08_Dashboard"] .metric:nth-child(3) strong { color: var(--color-neon-cyan); }
+    [data-component="08_Dashboard"] .files { display: grid; gap: 8px; margin-top: 14px; }
+    [data-component="08_Dashboard"] .file { padding: 12px; border-left: 2px solid var(--color-neon-cyan); background: var(--color-charcoal); }
+    [data-component="08_Dashboard"] .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    [data-component="08_Dashboard"] a { padding: 11px 14px; border: 1px solid var(--color-neon-cyan); color: #071011; background: var(--color-neon-cyan); text-decoration: none; font-size: 11px; font-weight: 700; }
+    [data-component="08_Dashboard"] a.secondary { color: var(--color-neon-cyan); background: transparent; }
+    [data-component="08_Dashboard"] a:focus-visible { outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+    [data-component="08_Dashboard"] [data-state="error"] { color: #f0aaa2; }
+
+    /* Skeleton Screens com Shimmer Pulso Cinza-Grafite */
+    @keyframes skeleton-shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    [data-component="08_Dashboard"] .skeleton {
+      background: linear-gradient(90deg, #141a1d 25%, #222d32 50%, #141a1d 75%);
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.6s ease-in-out infinite;
+      border-radius: 3px;
+    }
+    [data-component="08_Dashboard"] .skeleton-card {
+      border: 1px solid #28363b;
+      background: var(--color-dark-graphite);
+    }
+    [data-component="08_Dashboard"] .skeleton-text {
+      height: 12px;
+      margin-bottom: 6px;
+    }
+    [data-component="08_Dashboard"] .skeleton-title {
+      height: 28px;
+    }
+
+    @media (max-width: 620px) {
+      [data-component="08_Dashboard"] { padding: 18px; }
+      [data-component="08_Dashboard"] .metrics { grid-template-columns: 1fr; }
+    }
+  </style>
+  <div class="dashboard">
+    <!-- 2. Estrutura Esqueleto Idêntica aos Cartões de Métricas e de Evidências (Prompt 63) -->
+    <div id="dashboard-skeleton" class="skeleton-container" aria-label="Carregando métricas..." role="status">
+      <div class="metrics">
+        <div class="metric skeleton-card">
+          <div class="skeleton skeleton-text" style="width: 65%;"></div>
+          <div class="skeleton skeleton-title" style="width: 45%; margin-top: 8px;"></div>
+        </div>
+        <div class="metric skeleton-card">
+          <div class="skeleton skeleton-text" style="width: 55%;"></div>
+          <div class="skeleton skeleton-title" style="width: 35%; margin-top: 8px;"></div>
+        </div>
+        <div class="metric skeleton-card">
+          <div class="skeleton skeleton-text" style="width: 50%;"></div>
+          <div class="skeleton skeleton-title" style="width: 50%; margin-top: 8px;"></div>
+        </div>
+      </div>
+      <div class="open-files skeleton-card">
+        <div class="skeleton skeleton-text" style="width: 35%; height: 16px; margin-bottom: 10px;"></div>
+        <div class="skeleton skeleton-text" style="width: 25%; margin-bottom: 16px;"></div>
+        <div style="display: grid; gap: 8px;">
+          <div class="skeleton" style="height: 42px; width: 100%;"></div>
+          <div class="skeleton" style="height: 42px; width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <p data-state="error" hidden role="alert">Não foi possível carregar o painel.</p>
+
+    <!-- Conteúdo Real (Substituição Instantânea sem Deslocamento de Layout / CLS = 0) -->
+    <div class="metrics" hidden>
+      <div class="metric"><span>EVIDÊNCIAS COLETADAS / PENDENTES</span><strong id="dashboard-evidence">0 / 0</strong></div>
+      <div class="metric"><span>RIGOR DOCUMENTAL</span><strong id="dashboard-rigor">0%</strong></div>
+      <div class="metric"><span>TEMPO DE SESSÃO</span><strong id="dashboard-time">06:00:00</strong></div>
+    </div>
+    <section class="open-files" hidden>
+      <h3>Arquivos Abertos da Rodada</h3>
+      <small id="dashboard-phase"></small>
+      <div class="files" id="dashboard-files"></div>
+      <div class="actions">
+        <a href="#scene">RETOMAR INVESTIGAÇÃO</a>
+        <a class="secondary" href="#evidence">REVISAR PISTAS</a>
+      </div>
+    </section>
+  </div>
+</section>
+<script>(function() {
+  var root = document.querySelector('[data-component="08_Dashboard"]');
+  if (!root) return;
+  var skeleton = root.querySelector('#dashboard-skeleton');
+  var error = root.querySelector('[data-state="error"]');
+  var metrics = root.querySelector('.metrics:not(.skeleton-container .metrics)');
+  var files = root.querySelector('.open-files:not(.skeleton-container .open-files)');
+  var started = Date.now();
+
+  function tick() {
+    var elapsed = Math.floor((Date.now() - started) / 1000);
+    var remaining = Math.max(0, 21600 - elapsed);
+    root.querySelector('#dashboard-time').textContent = String(Math.floor(remaining / 3600)).padStart(2, '0') + ':' + String(Math.floor(remaining % 3600 / 60)).padStart(2, '0') + ':' + String(remaining % 60).padStart(2, '0');
+  }
+
+  function handleData(response) {
+    // 3. Substitui instantaneamente os blocos esqueleto pelos dados reais (CLS = 0)
+    if (skeleton) skeleton.hidden = true;
+    if (!response || !response.ok) { showUnavailable(); return; }
+    var data = response.data || {};
+    var values = data.metrics || {};
+    var items = data.evidence || [];
+    var collected = values.evidenceCollected == null ? items.length : values.evidenceCollected;
+    var total = values.evidenceTotal == null ? '—' : values.evidenceTotal;
+    root.querySelector('#dashboard-evidence').textContent = collected + ' / ' + total;
+    root.querySelector('#dashboard-rigor').textContent = values.documentaryRigor == null ? '—' : values.documentaryRigor + '%';
+    var activePhases = (data.phases || []).filter(function(item) { return item.state === 'active'; });
+    var phase = activePhases[0];
+    root.querySelector('#dashboard-phase').textContent = phase ? 'FASE ATIVA: ' + phase.title : 'Nenhuma fase ativa confirmada.';
+    var list = root.querySelector('#dashboard-files');
+    list.textContent = '';
+    if (!items.length) {
+      var empty = document.createElement('p');
+      empty.className = 'dashboard-empty';
+      empty.textContent = 'Nenhuma evidência confirmada nesta sessão.';
+      list.appendChild(empty);
+    }
+    items.slice(0, 6).forEach(function(item) {
+      var row = document.createElement('div');
+      row.className = 'file';
+      row.textContent = (item.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA') + ' · ' + (item.type || 'EVIDÊNCIA') + ' // ' + (item.title || 'Sem título');
+      list.appendChild(row);
+    });
+    metrics.hidden = false;
+    files.hidden = false;
+    tick();
+    window.setInterval(tick, 1000);
+  }
+
+  function showUnavailable() {
+    if (metrics) metrics.hidden = true;
+    if (files) files.hidden = true;
+    if (skeleton) skeleton.hidden = true;
+    if (error) {
+      error.textContent = 'Servidor indisponível. As métricas não foram confirmadas.';
+      error.hidden = false;
+    }
+  }
+
+  if (window.google && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(handleData)
+      .withFailureHandler(function() {
+        showUnavailable();
+      })
+      .getDashboardData(window.currentSessionToken);
+    } else {
+      showUnavailable();
+    }
+}());</script>

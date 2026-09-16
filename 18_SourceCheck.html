@@ -1,0 +1,954 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 18_SourceCheck.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Gaveta de checagem cruzada com estados de sessão e envio
+
+  PRINCIPAIS FUNCIONALIDADES
+  Checagem de fonte.
+
+  INTEGRAÇÕES
+  Fluxo para confrontar alegações, evidências e justificativa.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  Seleção e confronto integrados aos serviços de evidência e checagem, com retentativa,
+  mensagens anunciáveis e proteção contra respostas atrasadas.
+-->
+<section data-component="18_SourceCheck" aria-labelledby="source-check-title" aria-describedby="source-check-status" aria-busy="false">
+  <div class="source-check-drawer" id="source-check-drawer" hidden role="dialog" aria-modal="true" aria-labelledby="source-check-title" aria-describedby="source-check-status" aria-busy="false">
+    <div class="drawer-header">
+      <div>
+        <span class="drawer-tag">[ INVESTIGAÇÃO // CHECAGEM CRUZADA ]</span>
+        <h2 id="source-check-title">Confronto Direto de Fontes</h2>
+        <p class="content-nature-note"><strong>FICÇÃO DIDÁTICA:</strong> personagens e alegações pertencem ao caso simulado. O confronto ensina a testar evidências; não confirma acusações sobre pessoas ou entidades reais.</p>
+      </div>
+      <button type="button" class="drawer-close-btn" id="close-source-check" aria-label="Fechar gaveta de confronto (Tecla Esc)">
+        ✕ FECHAR <kbd>Esc</kbd>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- 1. Cartão da Alegação Selecionada -->
+      <section class="step-section" aria-labelledby="selected-claim-heading">
+        <h3 id="selected-claim-heading" class="section-title">1. Alegação Selecionada</h3>
+        <div class="claim-card-preview" id="claim-card-preview">
+          <div class="claim-character-meta">
+            <span class="char-icon" id="claim-char-icon">🕵️</span>
+            <div>
+              <strong id="claim-char-name">Fonte Anônima</strong>
+              <small id="claim-id-badge" class="badge-id">ALEGAÇÃO #CLAIM-01</small>
+            </div>
+          </div>
+          <blockquote class="claim-quote" id="claim-text-display">
+            “O áudio do gabinete central comprova pagamento ilícito a intermediários do consórcio.”
+          </blockquote>
+        </div>
+      </section>
+
+      <!-- 2. Seletor Visual de Evidências Desbloqueadas (Clique Único) -->
+      <section class="step-section" aria-labelledby="evidence-selector-heading">
+        <div class="section-heading-flex">
+          <h3 id="evidence-selector-heading" class="section-title">2. Escolha a Evidência para Confrontar (1 Clique)</h3>
+          <span class="evidence-count-badge" id="unlocked-count-badge">0 desbloqueadas</span>
+        </div>
+
+        <p data-state="loading" id="source-check-loading" class="check-state-msg" hidden role="status" aria-live="polite" aria-atomic="true">Carregando evidências da aba Evidence…</p>
+        <p data-state="error" id="source-check-status" class="check-state-msg check-error-msg" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Falha ao recuperar evidências.</p>
+        <button type="button" class="source-check-retry" id="source-check-retry" hidden>TENTAR NOVAMENTE</button>
+
+        <div class="evidence-cards-picker" id="evidence-cards-picker" role="radiogroup" aria-label="Selecione uma evidência">
+          <!-- Cartões suspensos de evidências renderizados via JS -->
+        </div>
+      </section>
+
+      <!-- Botão de Ação -->
+      <div class="action-footer">
+        <button type="button" class="verify-confront-btn" id="verify-confront-btn" disabled>
+          <span class="verify-icon" aria-hidden="true">⇄</span> CONFRONTAR ALEGAÇÃO COM EVIDÊNCIA
+        </button>
+      </div>
+
+      <!-- 3. Resultado do Confronto com Animações Semáforo Discretas -->
+      <section class="semaphore-result-box" id="semaphore-result-box" hidden aria-live="polite" aria-atomic="true" role="status" tabindex="-1">
+        <div class="semaphore-indicator" id="semaphore-indicator">
+          <span class="semaphore-dot" aria-hidden="true"></span>
+          <span class="semaphore-badge" id="semaphore-badge">VEREDITO</span>
+        </div>
+        <p class="semaphore-message" id="semaphore-message"></p>
+      </section>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="18_SourceCheck"] {
+    --sc-bg: #0e1315;
+    --sc-panel: #141b1e;
+    --sc-panel-active: #1a2327;
+    --sc-line: #273439;
+    --sc-cyan: var(--color-neon-cyan);
+    --sc-amber: var(--color-warning-amber);
+    --sc-red: var(--color-coral-red);
+    --sc-ink: var(--color-light-gray);
+    --sc-muted: var(--color-medium-gray);
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  [data-component="18_SourceCheck"] .source-check-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(92vw, 540px);
+    height: 100vh;
+    background: var(--sc-panel);
+    border-left: 1px solid var(--sc-line);
+    box-shadow: -12px 0 40px rgba(0, 0, 0, 0.7);
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    animation: drawer-slide-in .25s ease-out;
+  }
+
+  [data-component="18_SourceCheck"] .source-check-drawer[hidden] {
+    display: none;
+  }
+
+  @keyframes drawer-slide-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  [data-component="18_SourceCheck"] .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    background: #0d1214;
+    border-bottom: 1px solid var(--sc-line);
+  }
+
+  [data-component="18_SourceCheck"] .drawer-tag {
+    font-size: 9px;
+    letter-spacing: .14em;
+    color: var(--sc-cyan);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  [data-component="18_SourceCheck"] .drawer-header h2 {
+    margin: 0;
+    font: 700 18px/1.2 Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="18_SourceCheck"] .content-nature-note {
+    max-width: 620px;
+    margin: 12px 0 0;
+    padding: 9px 11px;
+    border-left: 3px solid var(--sc-amber);
+    color: #c3ced1;
+    background: rgba(240, 179, 91, .08);
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  [data-component="18_SourceCheck"] .content-nature-note strong {
+    color: var(--sc-amber);
+    letter-spacing: .06em;
+  }
+
+  [data-component="18_SourceCheck"] .drawer-close-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: transparent;
+    border: 1px solid var(--sc-line);
+    color: var(--sc-muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all .15s ease;
+  }
+
+  [data-component="18_SourceCheck"] .drawer-close-btn:hover,
+  [data-component="18_SourceCheck"] .drawer-close-btn:focus-visible {
+    border-color: var(--sc-amber);
+    color: var(--sc-amber);
+    outline: 2px solid var(--sc-amber);
+  }
+
+  [data-component="18_SourceCheck"] .drawer-close-btn kbd {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 9px;
+  }
+
+  [data-component="18_SourceCheck"] .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-sizing: border-box;
+  }
+
+  [data-component="18_SourceCheck"] .step-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  [data-component="18_SourceCheck"] .section-title {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: .1em;
+    color: var(--sc-muted);
+    text-transform: uppercase;
+  }
+
+  [data-component="18_SourceCheck"] .section-heading-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  [data-component="18_SourceCheck"] .evidence-count-badge {
+    font-size: 10px;
+    color: var(--sc-cyan);
+  }
+
+  /* Cartão de Alegação Selecionada */
+  [data-component="18_SourceCheck"] .claim-card-preview {
+    background: #0f1518;
+    border: 1px solid var(--sc-line);
+    border-left: 3px solid var(--sc-cyan);
+    border-radius: 4px;
+    padding: 14px 16px;
+  }
+
+  [data-component="18_SourceCheck"] .claim-character-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  [data-component="18_SourceCheck"] .char-icon {
+    font-size: 18px;
+  }
+
+  [data-component="18_SourceCheck"] .claim-character-meta strong {
+    font: 700 14px Georgia, serif;
+    color: #ffffff;
+    display: block;
+  }
+
+  [data-component="18_SourceCheck"] .badge-id {
+    font-size: 9px;
+    letter-spacing: .1em;
+    color: var(--sc-amber);
+  }
+
+  [data-component="18_SourceCheck"] .claim-quote {
+    margin: 0;
+    color: #cad5d9;
+    font: italic 14px/1.55 Georgia, serif;
+  }
+
+  /* Grade de Cartões Selecionáveis de Evidências */
+  [data-component="18_SourceCheck"] .evidence-cards-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  [data-component="18_SourceCheck"] .evidence-pick-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #11171a;
+    border: 1px solid var(--sc-line);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--sc-ink);
+    transition: all .15s ease-out;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  [data-component="18_SourceCheck"] .evidence-pick-card:hover {
+    background: #161f23;
+    border-color: #3d4f56;
+    transform: translateX(3px);
+  }
+
+  [data-component="18_SourceCheck"] .evidence-pick-card:focus-visible {
+    outline: 2px solid var(--sc-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="18_SourceCheck"] .evidence-pick-card:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+    transform: none;
+  }
+
+  [data-component="18_SourceCheck"] .evidence-pick-card[aria-checked="true"] {
+    background: #132225;
+    border-color: var(--sc-cyan);
+    box-shadow: 0 0 12px rgba(104, 212, 208, 0.25);
+  }
+
+  [data-component="18_SourceCheck"] .pick-card-icon {
+    font-size: 18px;
+    color: var(--sc-cyan);
+    flex-shrink: 0;
+  }
+
+  [data-component="18_SourceCheck"] .pick-card-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  [data-component="18_SourceCheck"] .pick-card-title {
+    font: 700 13px/1.2 Georgia, serif;
+    color: #ffffff;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  [data-component="18_SourceCheck"] .pick-card-meta {
+    font-size: 10px;
+    color: var(--sc-muted);
+  }
+
+  [data-component="18_SourceCheck"] .pick-card-check {
+    font-size: 14px;
+    color: transparent;
+    border: 1px solid var(--sc-line);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all .15s ease;
+  }
+
+  [data-component="18_SourceCheck"] .evidence-pick-card[aria-checked="true"] .pick-card-check {
+    background: var(--sc-cyan);
+    border-color: var(--sc-cyan);
+    color: var(--color-deep-shadow);
+  }
+
+  /* Botão de Verificação */
+  [data-component="18_SourceCheck"] .action-footer {
+    padding-top: 6px;
+  }
+
+  [data-component="18_SourceCheck"] .verify-confront-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #1a2226;
+    border: 1px solid var(--sc-line);
+    color: var(--sc-muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: not-allowed;
+    border-radius: 3px;
+    transition: all .2s ease;
+  }
+
+  [data-component="18_SourceCheck"] .verify-confront-btn:not([disabled]) {
+    background: var(--sc-cyan);
+    border-color: var(--sc-cyan);
+    color: #071011;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(104, 212, 208, 0.35);
+  }
+
+  [data-component="18_SourceCheck"] .verify-confront-btn:not([disabled]):hover,
+  [data-component="18_SourceCheck"] .verify-confront-btn:not([disabled]):focus-visible {
+    outline: 2px solid var(--sc-amber);
+    outline-offset: 2px;
+    background: #7ef5f0;
+  }
+
+  [data-component="18_SourceCheck"] .source-check-retry {
+    align-self: flex-start;
+    padding: 8px 11px;
+    border: 1px solid var(--sc-cyan);
+    color: var(--sc-cyan);
+    background: transparent;
+    font: 700 10px "IBM Plex Mono", monospace;
+    cursor: pointer;
+  }
+
+  [data-component="18_SourceCheck"] .source-check-retry:hover,
+  [data-component="18_SourceCheck"] .source-check-retry:focus-visible {
+    color: #071011;
+    background: var(--sc-cyan);
+    outline: 2px solid var(--sc-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="18_SourceCheck"] .check-state-msg {
+    margin: 0;
+    color: var(--sc-muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="18_SourceCheck"] .check-error-msg {
+    padding: 10px;
+    border-left: 2px solid var(--sc-red);
+    color: #f0aaa2;
+  }
+
+  /* Animações Semáforo Discretas */
+  [data-component="18_SourceCheck"] .semaphore-result-box {
+    border-radius: 4px;
+    padding: 14px 16px;
+    animation: result-fade-in .25s ease-out;
+    border-left: 4px solid transparent;
+  }
+
+  @keyframes result-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  [data-component="18_SourceCheck"] .semaphore-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  [data-component="18_SourceCheck"] .semaphore-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  [data-component="18_SourceCheck"] .semaphore-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .12em;
+  }
+
+  [data-component="18_SourceCheck"] .semaphore-message {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    font-family: Georgia, serif;
+  }
+
+  /* Semáforo Ciano: Confirmado */
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-confirmed {
+    background: #0f1c1d;
+    border: 1px solid var(--sc-cyan);
+    border-left: 4px solid var(--sc-cyan);
+    color: #d8f5f4;
+  }
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-confirmed .semaphore-dot {
+    background: var(--sc-cyan);
+    box-shadow: 0 0 10px var(--sc-cyan);
+  }
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-confirmed .semaphore-badge {
+    color: var(--sc-cyan);
+  }
+
+  /* Semáforo Âmbar: Inconsistente (Pulsante) */
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-inconsistent {
+    background: #1c180e;
+    border: 1px solid var(--sc-amber);
+    border-left: 4px solid var(--sc-amber);
+    color: #f7edd8;
+    animation: pulse-amber-border 2s infinite ease-in-out;
+  }
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-inconsistent .semaphore-dot {
+    background: var(--sc-amber);
+    animation: pulse-amber-dot 1.5s infinite alternate;
+  }
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-inconsistent .semaphore-badge {
+    color: var(--sc-amber);
+  }
+
+  @keyframes pulse-amber-border {
+    0%, 100% { box-shadow: 0 0 4px rgba(240, 179, 91, 0.2); }
+    50% { box-shadow: 0 0 16px rgba(240, 179, 91, 0.5); }
+  }
+
+  @keyframes pulse-amber-dot {
+    from { opacity: 0.5; box-shadow: 0 0 4px var(--sc-amber); }
+    to { opacity: 1; box-shadow: 0 0 12px var(--sc-amber); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="18_SourceCheck"] .source-check-drawer,
+    [data-component="18_SourceCheck"] .semaphore-result-box,
+    [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-inconsistent,
+    [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-inconsistent .semaphore-dot { animation: none; }
+  }
+
+  /* Semáforo Vermelho: Contraditório */
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-contradictory {
+    background: #1c1110;
+    border: 1px solid var(--sc-red);
+    border-left: 4px solid var(--sc-red);
+    color: #fae4e1;
+  }
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-contradictory .semaphore-dot {
+    background: var(--sc-red);
+    box-shadow: 0 0 8px var(--sc-red);
+  }
+  [data-component="18_SourceCheck"] .semaphore-result-box.semaphore-contradictory .semaphore-badge {
+    color: var(--sc-red);
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="18_SourceCheck"]');
+  if (!root) return;
+
+  var drawer = root.querySelector('#source-check-drawer');
+  var closeBtn = root.querySelector('#close-source-check');
+  var claimCharName = root.querySelector('#claim-char-name');
+  var claimCharIcon = root.querySelector('#claim-char-icon');
+  var claimIdBadge = root.querySelector('#claim-id-badge');
+  var claimTextDisplay = root.querySelector('#claim-text-display');
+  var evidenceCardsPicker = root.querySelector('#evidence-cards-picker');
+  var unlockedCountBadge = root.querySelector('#unlocked-count-badge');
+  var verifyConfrontBtn = root.querySelector('#verify-confront-btn');
+  var resultBox = root.querySelector('#semaphore-result-box');
+  var semaphoreBadge = root.querySelector('#semaphore-badge');
+  var semaphoreMessage = root.querySelector('#semaphore-message');
+  var loading = root.querySelector('[data-state="loading"]');
+  var error = root.querySelector('[data-state="error"]');
+  var retryBtn = root.querySelector('#source-check-retry');
+
+  var currentCharacterId = 'anonymous-source';
+  var currentClaimId = 'claim-01';
+  var currentEvidenceId = null;
+  var currentEvidenceNature = null;
+  var lastFocusedElement = null;
+  var evidenceLoadSerial = 0;
+  var verificationSerial = 0;
+
+  var charIcons = {
+    'anonymous-source': '🕵️',
+    'chief-editor': '🗞️',
+    'lobbyist': '💼',
+    'public-figure': '🏛️'
+  };
+
+  var evidenceIcons = {
+    'document': '▤',
+    'spreadsheet': '▦',
+    'audio': '◈',
+    'image': '▣'
+  };
+
+  function setBusy(busy) {
+    var value = busy ? 'true' : 'false';
+    root.setAttribute('aria-busy', value);
+    if (drawer) drawer.setAttribute('aria-busy', value);
+    if (loading) loading.hidden = !busy;
+    if (retryBtn && busy) retryBtn.hidden = true;
+  }
+
+  function restoreUserId() {
+    if (window.currentUserId) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.user || !saved.user.id) return '';
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function clearError() {
+    if (error) error.hidden = true;
+    if (retryBtn) retryBtn.hidden = true;
+  }
+
+  function showError(message, canRetry) {
+    setBusy(false);
+    if (error) {
+      error.textContent = message || 'Não foi possível concluir a operação.';
+      error.hidden = false;
+      try { error.focus(); } catch (e) {}
+    }
+    if (retryBtn) retryBtn.hidden = !canRetry;
+  }
+
+  function setVerifyLabel(label) {
+    if (!verifyConfrontBtn) return;
+    verifyConfrontBtn.textContent = '';
+    var icon = document.createElement('span');
+    icon.className = 'verify-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '⇄';
+    verifyConfrontBtn.appendChild(icon);
+    verifyConfrontBtn.appendChild(document.createTextNode(' ' + label));
+  }
+
+  function clearEvidencePicker() {
+    if (evidenceCardsPicker) evidenceCardsPicker.textContent = '';
+    if (unlockedCountBadge) unlockedCountBadge.textContent = '0 desbloqueadas';
+  }
+
+  function openDrawer(data) {
+    lastFocusedElement = document.activeElement;
+    evidenceLoadSerial++;
+    verificationSerial++;
+    var details = data && typeof data === 'object' ? data : {};
+    if (details) {
+      currentCharacterId = String(details.characterId || 'anonymous-source');
+      currentClaimId = String(details.claimId || 'claim-01');
+      if (claimCharName) claimCharName.textContent = String(details.characterName || 'Fonte de Investigação');
+      if (claimCharIcon) claimCharIcon.textContent = charIcons[currentCharacterId] || '👤';
+      if (claimIdBadge) claimIdBadge.textContent = 'ALEGAÇÃO #' + (currentClaimId || '01').toUpperCase();
+      if (claimTextDisplay) claimTextDisplay.textContent = '“' + String(details.claimText || 'Alegação selecionada para verificação.') + '”';
+    }
+
+    currentEvidenceId = null;
+    currentEvidenceNature = null;
+    if (verifyConfrontBtn) verifyConfrontBtn.disabled = true;
+    if (resultBox) resultBox.hidden = true;
+    clearError();
+    setBusy(true);
+
+    if (drawer) {
+      drawer.hidden = false;
+      drawer.setAttribute('tabindex', '-1');
+      if (closeBtn) closeBtn.focus();
+    }
+
+    loadUnlockedEvidence();
+  }
+
+  function closeDrawer() {
+    evidenceLoadSerial++;
+    verificationSerial++;
+    setBusy(false);
+    if (drawer) drawer.hidden = true;
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      try { lastFocusedElement.focus(); } catch (e) {}
+    }
+    window.dispatchEvent(new CustomEvent('sourcecheck:closed'));
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeDrawer);
+  }
+
+  window.addEventListener('keydown', function(e) {
+    if ((e.key === 'Escape' || e.key === 'Esc') && drawer && !drawer.hidden) {
+      e.preventDefault();
+      closeDrawer();
+    }
+  });
+
+  function selectEvidenceCard(evidenceId, cardElement) {
+    if (!evidenceId) return;
+    currentEvidenceId = String(evidenceId);
+    var allCards = evidenceCardsPicker.querySelectorAll('.evidence-pick-card');
+    allCards.forEach(function(c) {
+      c.setAttribute('aria-checked', 'false');
+      c.setAttribute('tabindex', '-1');
+    });
+    if (cardElement) {
+      cardElement.setAttribute('aria-checked', 'true');
+      cardElement.setAttribute('tabindex', '0');
+    }
+    if (verifyConfrontBtn) {
+      verifyConfrontBtn.disabled = false;
+    }
+    if (resultBox) {
+      resultBox.hidden = true;
+      resultBox.classList.remove('semaphore-confirmed', 'semaphore-inconsistent', 'semaphore-contradictory');
+    }
+    if (semaphoreMessage) semaphoreMessage.textContent = '';
+    clearError();
+  }
+
+  function renderEvidencePicker(evidenceList) {
+    if (!evidenceCardsPicker) return;
+    evidenceCardsPicker.textContent = '';
+
+    var items = evidenceList || [];
+    if (unlockedCountBadge) {
+      unlockedCountBadge.textContent = items.length + (items.length === 1 ? ' desbloqueada' : ' desbloqueadas');
+    }
+
+    if (!items.length) {
+      var empty = document.createElement('p');
+      empty.className = 'check-state-msg';
+      empty.textContent = 'Nenhuma evidência desbloqueada até o momento. Prossiga na apuração.';
+      evidenceCardsPicker.appendChild(empty);
+      return;
+    }
+
+    items.forEach(function(ev) {
+      ev = ev || {};
+      var evidenceId = String(ev.id || '');
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'evidence-pick-card';
+      card.setAttribute('role', 'radio');
+      card.setAttribute('aria-checked', 'false');
+      card.setAttribute('tabindex', evidenceId ? '0' : '-1');
+      card.setAttribute('aria-label', 'Evidência: ' + String(ev.title || ev.name || 'sem título') + ' (' + String(ev.type || 'documento') + ')');
+      if (!evidenceId) card.disabled = true;
+
+      var iconSpan = document.createElement('span');
+      iconSpan.className = 'pick-card-icon';
+      iconSpan.setAttribute('aria-hidden', 'true');
+      iconSpan.textContent = evidenceIcons[String(ev.type || '').toLowerCase()] || '▤';
+      card.appendChild(iconSpan);
+
+      var contentDiv = document.createElement('div');
+      contentDiv.className = 'pick-card-content';
+
+      var titleDiv = document.createElement('div');
+      titleDiv.className = 'pick-card-title';
+      titleDiv.textContent = ev.title || ev.name || 'Evidência sem título';
+      contentDiv.appendChild(titleDiv);
+
+      var metaDiv = document.createElement('div');
+      metaDiv.className = 'pick-card-meta';
+      metaDiv.textContent = (ev.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA') + ' · ' + String(ev.type || 'DOCUMENTO').toUpperCase() + ' · ' + (ev.reliability || 'Confiabilidade não informada') + ' · ' + (ev.phase || 'Fase não informada');
+      contentDiv.appendChild(metaDiv);
+
+      card.appendChild(contentDiv);
+
+      var checkDiv = document.createElement('span');
+      checkDiv.className = 'pick-card-check';
+      checkDiv.textContent = '✓';
+      card.appendChild(checkDiv);
+
+      // Seleção visual com 1 clique direto
+      card.addEventListener('click', function() {
+        currentEvidenceNature = ev.contentNature || null;
+        selectEvidenceCard(evidenceId, card);
+      });
+      card.addEventListener('keydown', function(event) {
+        if (!evidenceCardsPicker || ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].indexOf(event.key) < 0) return;
+        var cards = Array.prototype.slice.call(evidenceCardsPicker.querySelectorAll('.evidence-pick-card:not(:disabled)'));
+        var index = cards.indexOf(card);
+        if (index < 0 || !cards.length) return;
+        event.preventDefault();
+        var nextIndex = (index + (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1) + cards.length) % cards.length;
+        cards[nextIndex].focus();
+        cards[nextIndex].click();
+      });
+
+      evidenceCardsPicker.appendChild(card);
+    });
+  }
+
+  function loadUnlockedEvidence() {
+    var serial = ++evidenceLoadSerial;
+    setBusy(true);
+    clearError();
+    if (evidenceCardsPicker) evidenceCardsPicker.textContent = '';
+    if (verifyConfrontBtn) verifyConfrontBtn.disabled = true;
+
+    var userId = restoreUserId();
+    if (!userId) {
+      showError('Sua sessão não está ativa. Entre novamente para consultar as evidências.', true);
+      return;
+    }
+    if (window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (serial !== evidenceLoadSerial || !drawer || drawer.hidden) return;
+          setBusy(false);
+          if (!response || !response.ok) {
+            clearEvidencePicker();
+            showError(response && response.error && response.error.message || 'Não foi possível carregar as evidências.', true);
+            return;
+          }
+          if (!Array.isArray(response.data)) {
+            clearEvidencePicker();
+            showError('O servidor devolveu um formato de evidências inválido.', true);
+            return;
+          }
+          clearError();
+          renderEvidencePicker(response.data);
+        })
+        .withFailureHandler(function() {
+          if (serial !== evidenceLoadSerial || !drawer || drawer.hidden) return;
+          clearEvidencePicker();
+          showError('Falha de sincronização. As evidências não foram confirmadas; tente novamente.', true);
+        })
+        .listUnlockedEvidence(userId);
+    } else {
+      clearEvidencePicker();
+      showError('Servidor indisponível. As evidências não foram confirmadas; tente novamente.', true);
+    }
+  }
+
+  // Execução do Confronto com Renderização do Semáforo
+  function runVerification() {
+    if (!currentEvidenceId) return;
+
+    var evidenceId = String(currentEvidenceId);
+    var characterId = String(currentCharacterId || '');
+    var claimId = String(currentClaimId || '');
+    var evidenceNature = currentEvidenceNature;
+    var serial = ++verificationSerial;
+    var userId = restoreUserId();
+    if (!userId) {
+      if (verifyConfrontBtn) verifyConfrontBtn.disabled = true;
+      showError('Sua sessão não está ativa. Entre novamente para registrar a checagem.', false);
+      return;
+    }
+    setBusy(true);
+    clearError();
+    verifyConfrontBtn.disabled = true;
+    setVerifyLabel('CONFRONTANDO DADOS...');
+
+    function handleResult(response) {
+      if (serial !== verificationSerial || !drawer || drawer.hidden) return;
+      setBusy(false);
+      verifyConfrontBtn.disabled = false;
+      setVerifyLabel('CONFRONTAR ALEGAÇÃO COM EVIDÊNCIA');
+
+      if (!response || !response.ok) {
+        showError(response && response.error && response.error.message || 'Erro ao processar verificação.', false);
+        return;
+      }
+
+      var res = response.data || {};
+      var verdict = res.verdict || (res.status === 'checked' ? 'confirmed' : res.status === 'inconsistent' ? 'inconsistent' : null);
+      if (['confirmed', 'inconsistent', 'contradictory'].indexOf(verdict) < 0) {
+        showError('A checagem retornou um resultado incompleto.', false);
+        return;
+      }
+      var resultMessage = String(res.message || 'Resultado da verificação sem justificativa disponível.');
+      var isSimulated = evidenceNature === 'simulated_data' || evidenceNature === 'fiction';
+      if (isSimulated && verdict === 'confirmed') {
+        resultMessage += ' Coerência registrada apenas dentro do caso simulado; não é confirmação factual externa.';
+      }
+
+      if (resultBox) {
+        resultBox.hidden = false;
+        resultBox.classList.remove('semaphore-confirmed', 'semaphore-inconsistent', 'semaphore-contradictory');
+
+        if (verdict === 'confirmed') {
+          resultBox.classList.add('semaphore-confirmed');
+          if (semaphoreBadge) semaphoreBadge.textContent = isSimulated ? 'COERENTE NO CASO SIMULADO' : 'CONFIRMADO [CIANO]';
+          if (semaphoreMessage) semaphoreMessage.textContent = resultMessage;
+        } else if (verdict === 'inconsistent') {
+          resultBox.classList.add('semaphore-inconsistent');
+          if (semaphoreBadge) semaphoreBadge.textContent = 'INCONSISTENTE [ÂMBAR PULSANTE]';
+          if (semaphoreMessage) semaphoreMessage.textContent = resultMessage;
+        } else {
+          resultBox.classList.add('semaphore-contradictory');
+          if (semaphoreBadge) semaphoreBadge.textContent = 'CONTRADITÓRIO [VERMELHO]';
+          if (semaphoreMessage) semaphoreMessage.textContent = resultMessage;
+        }
+
+        resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        try { resultBox.focus(); } catch (e) {}
+      }
+
+      window.dispatchEvent(new CustomEvent('sourcecheck:verified', {
+        detail: {
+          characterId: characterId,
+          claimId: claimId,
+          evidenceId: evidenceId,
+          verdict: verdict
+        }
+      }));
+
+      if (typeof window.showToast === 'function') {
+        var toastType = verdict === 'confirmed' ? 'success' : (verdict === 'inconsistent' ? 'alert' : 'error');
+        window.showToast('Checagem de Fonte', resultMessage, toastType);
+      }
+    }
+
+    function handleFailure() {
+      if (serial !== verificationSerial || !drawer || drawer.hidden) return;
+      setBusy(false);
+      verifyConfrontBtn.disabled = false;
+      setVerifyLabel('CONFRONTAR ALEGAÇÃO COM EVIDÊNCIA');
+      showError('Falha de conexão durante a checagem de fontes.', false);
+    }
+
+    if (!window.google || !google.script || !google.script.run) {
+      handleFailure();
+      return;
+    }
+    if (window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(handleResult)
+        .withFailureHandler(handleFailure)
+        .verifyClaim(userId, characterId, claimId, evidenceId);
+    }
+  }
+
+  if (verifyConfrontBtn) {
+    verifyConfrontBtn.addEventListener('click', runVerification);
+  }
+
+  // Ouvinte de Abertura Direta
+  window.addEventListener('sourcecheck:open', function(event) {
+    openDrawer(event.detail);
+  });
+}());
+</script>

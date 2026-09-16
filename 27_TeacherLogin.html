@@ -1,0 +1,233 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 27_TeacherLogin.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Tela de autenticação docente com estados acessíveis
+
+  PRINCIPAIS FUNCIONALIDADES
+  Login do professor.
+
+  INTEGRAÇÕES
+  Entrada específica para painel educacional e autorização por papel.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Formulário produtivo conectado a authenticateUser, com validação, sessão docente,
+  feedback anunciável, prevenção de duplo envio e retorno seguro ao painel.
+-->
+<section data-component="27_TeacherLogin" aria-labelledby="teacher-login-title" aria-describedby="teacher-login-description" aria-busy="false">
+  <style>
+    [data-component="27_TeacherLogin"] { min-height: 100vh; display: grid; place-items: center; padding: 24px; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "Courier New", monospace; }
+    [data-component="27_TeacherLogin"] * { box-sizing: border-box; }
+    [data-component="27_TeacherLogin"] .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    [data-component="27_TeacherLogin"] .login-box { width: min(100%, 440px); padding: 30px; border-top: 3px solid var(--color-warning-amber); border-right: 1px solid var(--color-slate-gray); border-bottom: 1px solid var(--color-slate-gray); border-left: 1px solid var(--color-slate-gray); background: var(--color-dark-graphite); box-shadow: 12px 12px 0 rgba(16, 21, 23, .72); }
+    [data-component="27_TeacherLogin"] .mark { color: var(--color-neon-cyan); font-size: 10px; letter-spacing: .14em; }
+    [data-component="27_TeacherLogin"] h2 { margin: 12px 0 8px; font: 700 30px/1.1 Georgia, serif; }
+    [data-component="27_TeacherLogin"] .intro { margin: 0 0 20px; color: #9eaaae; font-size: 12px; line-height: 1.6; }
+    [data-component="27_TeacherLogin"] .scope-note { margin: 0 0 20px; padding: 10px 12px; border-left: 2px solid var(--color-warning-amber); color: #d5dddf; font: 13px/1.5 Georgia, serif; }
+    [data-component="27_TeacherLogin"] form { display: grid; gap: 12px; }
+    [data-component="27_TeacherLogin"] label { color: #b9c3c5; font-size: 11px; }
+    [data-component="27_TeacherLogin"] input { display: block; width: 100%; margin-top: 6px; padding: 12px; border: 1px solid #354247; border-radius: 0; color: var(--color-light-gray); background: var(--color-deep-shadow); font: 13px "Courier New", monospace; }
+    [data-component="27_TeacherLogin"] input:focus { outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+    [data-component="27_TeacherLogin"] input[aria-invalid="true"] { border-color: var(--color-coral-red); }
+    [data-component="27_TeacherLogin"] button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 10px; padding: 13px; border: 1px solid var(--color-warning-amber); color: #071011; background: var(--color-warning-amber); font: 700 11px "Courier New", monospace; cursor: pointer; }
+    [data-component="27_TeacherLogin"] button:focus-visible, [data-component="27_TeacherLogin"] a:focus-visible { outline: 2px solid var(--color-neon-cyan); outline-offset: 3px; }
+    [data-component="27_TeacherLogin"] button:disabled { opacity: .55; cursor: wait; }
+    [data-component="27_TeacherLogin"] [data-state] { margin: 14px 0 0; color: #9eaaae; font-size: 11px; line-height: 1.5; }
+    [data-component="27_TeacherLogin"] [data-state="error"] { padding: 10px; border-left: 2px solid var(--color-coral-red); color: #f0aaa2; }
+    [data-component="27_TeacherLogin"] [data-state="success"] { padding: 10px; border-left: 2px solid var(--color-neon-cyan); color: #bfe8e5; }
+    [data-component="27_TeacherLogin"] [data-state="success"] a { color: var(--color-neon-cyan); }
+    @media (max-width: 480px) { [data-component="27_TeacherLogin"] { padding: 16px; } [data-component="27_TeacherLogin"] .login-box { padding: 24px 20px; } }
+    @media (prefers-reduced-motion: reduce) { [data-component="27_TeacherLogin"] *, [data-component="27_TeacherLogin"] *::before, [data-component="27_TeacherLogin"] *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+  </style>
+  <div class="login-box">
+    <div class="mark">[ CONSÓRCIO // ACESSO DOCENTE ]</div>
+    <h2 id="teacher-login-title">Acesso docente</h2>
+    <p id="teacher-login-description" class="intro">Use suas credenciais institucionais para abrir a visão pedagógica consolidada.</p>
+    <p class="scope-note"><strong>ACESSO RESTRITO:</strong> este painel reúne dados agregados e exige validação docente.</p>
+    <form id="teacher-login-form" aria-labelledby="teacher-login-title" aria-describedby="teacher-login-description teacher-login-status teacher-login-error" aria-busy="false">
+      <label for="teacher-identifier">Identificador<input id="teacher-identifier" name="identifier" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" required maxlength="160"></label>
+      <label for="teacher-password">Chave de acesso<input id="teacher-password" name="password" type="password" autocomplete="current-password" enterkeyhint="go" required maxlength="160"></label>
+      <button type="submit" id="teacher-login-submit" aria-busy="false"><span id="teacher-login-submit-label">ENTRAR COMO DOCENTE</span><span aria-hidden="true">→</span></button>
+    </form>
+    <p data-state="loading" id="teacher-login-status" hidden role="status" aria-live="polite" aria-atomic="true">Verificando acesso docente…</p>
+    <p data-state="success" id="teacher-login-success" hidden role="status" aria-live="polite" aria-atomic="true">Acesso docente liberado. <a id="teacher-dashboard-link" href="#teacher-dashboard">Abrir painel docente →</a></p>
+    <p data-state="error" id="teacher-login-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível autenticar. Verifique os dados e tente novamente.</p>
+  </div>
+</section>
+<script>
+  (function() {
+    var root = document.querySelector('[data-component="27_TeacherLogin"]');
+    var form = root && root.querySelector('#teacher-login-form');
+    if (!form) return;
+    var button = form.querySelector('#teacher-login-submit');
+    var buttonLabel = root.querySelector('#teacher-login-submit-label');
+    var loading = root.querySelector('#teacher-login-status');
+    var success = root.querySelector('#teacher-login-success');
+    var error = root.querySelector('#teacher-login-error');
+    var identifierInput = form.elements.identifier;
+    var passwordInput = form.elements.password;
+    var dashboardLink = root.querySelector('#teacher-dashboard-link');
+    var defaultError = 'Não foi possível autenticar. Verifique os dados e tente novamente.';
+    var isBusy = false;
+
+    function hasScriptRunner() {
+      return Boolean(window.google && window.google.script && window.google.script.run);
+    }
+
+    function setBusy(busy, message) {
+      isBusy = Boolean(busy);
+      root.setAttribute('aria-busy', String(isBusy));
+      form.setAttribute('aria-busy', String(isBusy));
+      if (button) {
+        button.disabled = isBusy;
+        button.setAttribute('aria-busy', String(isBusy));
+      }
+      if (buttonLabel) buttonLabel.textContent = isBusy ? 'VERIFICANDO…' : 'ENTRAR COMO DOCENTE';
+      [identifierInput, passwordInput].forEach(function(input) {
+        if (input) input.disabled = isBusy;
+      });
+      if (loading) {
+        if (message) loading.textContent = message;
+        loading.hidden = !isBusy;
+      }
+    }
+
+    function clearFeedback() {
+      if (loading) loading.hidden = true;
+      if (success) success.hidden = true;
+      if (error) {
+        error.textContent = defaultError;
+        error.hidden = true;
+      }
+    }
+
+    function showError(message, moveFocus) {
+      setBusy(false);
+      clearFeedback();
+      if (error) {
+        error.textContent = message || defaultError;
+        error.hidden = false;
+        if (moveFocus) {
+          try { error.focus(); } catch (ignored) {}
+        }
+      }
+    }
+
+    function normalizedRole(value) {
+      return String(value == null ? '' : value).trim().toLowerCase();
+    }
+
+    function validTeacherResponse(response) {
+      var data = response && response.ok && response.data;
+      var user = data && data.user;
+      var session = data && data.session;
+      return Boolean(user && (typeof user.id === 'string' || typeof user.id === 'number') &&
+        String(user.id).trim() && normalizedRole(user.role) === 'teacher' &&
+        session && typeof session.token === 'string' && session.token.trim());
+    }
+
+    function persistSession(user, session) {
+      try {
+        window.localStorage.setItem('sombras.session', JSON.stringify({
+          token: String(session.token),
+          user: user
+        }));
+      } catch (storageError) {}
+    }
+
+    function navigateToDashboard() {
+      var navigated = false;
+      try {
+        if (window.top && window.top !== window) {
+          window.top.location.hash = 'teacher-dashboard';
+          navigated = true;
+        }
+      } catch (navigationError) {}
+      try { window.location.hash = 'teacher-dashboard'; } catch (ignored) {}
+      if (!navigated && dashboardLink) {
+        setTimeout(function() {
+          try { dashboardLink.focus(); } catch (ignored) {}
+        }, 120);
+      }
+    }
+
+    function focusWhenVisible() {
+      if (!root || root.offsetParent === null || !identifierInput || document.activeElement === identifierInput) return;
+      try { identifierInput.focus(); } catch (ignored) {}
+    }
+
+    window.addEventListener('route:changed', function(event) {
+      if (event && event.detail && event.detail.route === 'teacher-login') {
+        setTimeout(focusWhenVisible, 0);
+      }
+    });
+
+    [identifierInput, passwordInput].forEach(function(input) {
+      if (!input) return;
+      input.addEventListener('input', function() {
+        input.removeAttribute('aria-invalid');
+        if (error) error.hidden = true;
+      });
+    });
+
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+      if (isBusy || !form.reportValidity()) return;
+      clearFeedback();
+      if (!hasScriptRunner()) {
+        showError('Servidor indisponível. A autenticação docente não foi concluída.', true);
+        return;
+      }
+      setBusy(true, 'Verificando acesso docente…');
+      window.google.script.run
+        .withSuccessHandler(function(response) {
+          if (!validTeacherResponse(response)) {
+            if (passwordInput) passwordInput.value = '';
+            showError(response && response.ok ? 'Acesso restrito ao corpo docente.' : defaultError, true);
+            return;
+          }
+          var user = response.data.user;
+          var session = response.data.session;
+          window.currentUser = user;
+          window.currentUserId = String(user.id);
+          window.currentSessionToken = String(session.token);
+          persistSession(user, session);
+          if (passwordInput) passwordInput.value = '';
+          setBusy(false);
+          if (success) success.hidden = false;
+          navigateToDashboard();
+        })
+        .withFailureHandler(function() {
+          if (passwordInput) passwordInput.value = '';
+          showError(defaultError, true);
+        })
+        .authenticateUser(String(identifierInput.value || '').trim(), String(passwordInput.value || ''));
+    });
+  }());
+</script>

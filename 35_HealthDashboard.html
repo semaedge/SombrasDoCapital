@@ -1,0 +1,618 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 35_HealthDashboard.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Dashboard de Saúde do Sistema
+
+  PRINCIPAIS FUNCIONALIDADES
+  Painel administrativo de monitoramento de saúde, maturidade e testes do backend.
+
+  INTEGRAÇÕES
+  Consome getSystemHealth() do 38_HealthService.gs para exibir status em tempo real.
+
+  PROMPT 82: Health Checks e Completude do Sistema
+  Dashboard visual com métricas de maturidade, dependências, testes e recomendações.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva com atualização automática a cada 30 segundos.
+-->
+<section data-component="35_HealthDashboard" aria-labelledby="health-dashboard-heading" aria-describedby="health-dashboard-description" aria-busy="false">
+  <div class="health-container">
+    <header class="health-header">
+      <div class="header-content">
+        <span class="meta-tag">[ DIAGNÓSTICO OPERACIONAL // SISTEMA ]</span>
+        <h2 id="health-dashboard-heading">Saúde do Sistema</h2>
+        <p class="subtitle" id="health-dashboard-description">Monitoramento contínuo de backend, segurança e performance.</p>
+      </div>
+      <button type="button" class="btn-refresh" id="btn-refresh" title="Atualizar métricas">
+        <span aria-hidden="true">🔄</span> <span id="refresh-label">Atualizar agora</span>
+      </button>
+    </header>
+
+    <p data-state="loading" id="health-loading" class="health-msg" hidden role="status" aria-live="polite" aria-atomic="true">Carregando métricas do sistema…</p>
+    <p data-state="error" id="health-error" class="health-msg error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível carregar as métricas de saúde.</p>
+    <p id="health-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+
+    <div id="health-content" hidden aria-busy="false">
+      <!-- Score Geral -->
+      <div class="overall-status" id="overall-status" role="region" aria-labelledby="status-title" aria-describedby="status-description">
+          <div class="status-icon" id="status-icon" aria-hidden="true">—</div>
+          <div class="status-content">
+          <h3 class="status-title" id="status-title">Aguardando validação</h3>
+          <p class="status-description" id="status-description">Os dados aparecerão após uma consulta confirmada.</p>
+          <div class="status-score">
+            <span class="score-label">Score Geral:</span>
+            <strong class="score-value" id="score-value" aria-live="polite">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid de Métricas -->
+      <div class="metrics-grid">
+        <!-- Card: Maturidade -->
+        <div class="metric-card" id="card-maturity">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">📊</span>
+            <h4 class="card-title">Maturidade do Backend</h4>
+          </div>
+          <div class="card-score">
+            <span class="score-large" id="maturity-score" aria-live="polite">—</span>
+          </div>
+          <p class="card-level" id="maturity-level">não consultado</p>
+          <p class="card-summary" id="maturity-summary">Sem dados operacionais confirmados.</p>
+        </div>
+
+        <!-- Card: Dependências -->
+        <div class="metric-card" id="card-dependencies">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">🔗</span>
+            <h4 class="card-title">Dependências</h4>
+          </div>
+          <div class="card-score">
+            <span class="score-large" id="dependencies-score" aria-live="polite">—</span>
+          </div>
+          <p class="card-level" id="dependencies-status">não consultado</p>
+          <p class="card-summary" id="dependencies-summary">Sem dados de dependências confirmados.</p>
+        </div>
+
+        <!-- Card: Testes -->
+        <div class="metric-card" id="card-tests">
+          <div class="card-header">
+            <span class="card-icon" aria-hidden="true">🧪</span>
+            <h4 class="card-title">Testes Diagnósticos</h4>
+          </div>
+          <div class="card-score">
+            <span class="score-fraction" id="tests-fraction" aria-live="polite">—</span>
+          </div>
+          <p class="card-level" id="tests-status">não consultado</p>
+          <p class="card-summary">Tempo de execução: <strong id="tests-duration">0ms</strong></p>
+        </div>
+      </div>
+
+      <!-- Timestamp -->
+      <div class="health-footer">
+        <p>
+            <strong>Última atualização:</strong> <time id="last-update" datetime="">—</time>
+          <span class="auto-refresh-notice">(atualização automática a cada 30s)</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="35_HealthDashboard"] {
+    --hd-bg: var(--color-deep-shadow);
+    --hd-panel: var(--color-dark-graphite);
+    --hd-card: #101618;
+    --hd-line: #293539;
+    --hd-cyan: var(--color-neon-cyan);
+    --hd-green: #6fdc8c;
+    --hd-amber: var(--color-warning-amber);
+    --hd-red: var(--color-coral-red);
+    --hd-ink: var(--color-light-gray);
+    --hd-muted: var(--color-medium-gray);
+    padding: 24px;
+    color: var(--hd-ink);
+    background: var(--hd-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+
+  [data-component="35_HealthDashboard"] *,
+  [data-component="35_HealthDashboard"] *::before,
+  [data-component="35_HealthDashboard"] *::after { box-sizing: border-box; }
+
+  [data-component="35_HealthDashboard"] .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  [data-component="35_HealthDashboard"] .health-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  [data-component="35_HealthDashboard"] .health-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--hd-line);
+  }
+
+  [data-component="35_HealthDashboard"] .meta-tag {
+    display: block;
+    color: var(--hd-cyan);
+    font-size: 10px;
+    letter-spacing: .14em;
+    margin-bottom: 6px;
+  }
+
+  [data-component="35_HealthDashboard"] h2 {
+    margin: 0 0 4px;
+    font: 700 clamp(26px, 4vw, 32px) Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="35_HealthDashboard"] .subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--hd-muted);
+  }
+
+  [data-component="35_HealthDashboard"] .btn-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    background: transparent;
+    border: 1px solid var(--hd-cyan);
+    color: var(--hd-cyan);
+    font: 700 12px "IBM Plex Mono", monospace;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  [data-component="35_HealthDashboard"] .btn-refresh:hover,
+  [data-component="35_HealthDashboard"] .btn-refresh:focus-visible {
+    background: rgba(104, 212, 208, 0.15);
+    box-shadow: 0 0 12px rgba(104, 212, 208, 0.3);
+  }
+
+  [data-component="35_HealthDashboard"] .btn-refresh:focus-visible {
+    outline: 2px solid var(--hd-amber);
+    outline-offset: 3px;
+  }
+
+  [data-component="35_HealthDashboard"] .btn-refresh:disabled {
+    cursor: wait;
+    opacity: .55;
+  }
+
+  [data-component="35_HealthDashboard"] .health-msg {
+    padding: 16px 20px;
+    background: var(--hd-panel);
+    border-left: 3px solid var(--hd-cyan);
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  [data-component="35_HealthDashboard"] .health-msg.error {
+    border-left-color: var(--hd-red);
+    color: #f7a8a0;
+  }
+
+  /* Status Geral */
+  [data-component="35_HealthDashboard"] .overall-status {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 28px;
+    background: var(--hd-panel);
+    border: 2px solid var(--hd-green);
+    border-radius: 6px;
+    margin-bottom: 32px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  [data-component="35_HealthDashboard"] .overall-status.warning {
+    border-color: var(--hd-amber);
+  }
+
+  [data-component="35_HealthDashboard"] .overall-status.critical {
+    border-color: var(--hd-red);
+  }
+
+  [data-component="35_HealthDashboard"] .status-icon {
+    font-size: 48px;
+    flex-shrink: 0;
+  }
+
+  [data-component="35_HealthDashboard"] .status-content {
+    flex: 1;
+  }
+
+  [data-component="35_HealthDashboard"] .status-title {
+    margin: 0 0 8px;
+    font: 700 22px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="35_HealthDashboard"] .status-description {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: var(--hd-muted);
+  }
+
+  [data-component="35_HealthDashboard"] .status-score {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  [data-component="35_HealthDashboard"] .score-label {
+    font-size: 12px;
+    color: var(--hd-muted);
+  }
+
+  [data-component="35_HealthDashboard"] .score-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--hd-green);
+  }
+
+  /* Grid de Métricas */
+  [data-component="35_HealthDashboard"] .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  [data-component="35_HealthDashboard"] .metric-card {
+    background: var(--hd-panel);
+    border: 1px solid var(--hd-line);
+    border-radius: 6px;
+    padding: 24px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    transition: transform .15s ease, border-color .15s ease;
+  }
+
+  [data-component="35_HealthDashboard"] .metric-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--hd-cyan);
+  }
+
+  [data-component="35_HealthDashboard"] .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  [data-component="35_HealthDashboard"] .card-icon {
+    font-size: 20px;
+  }
+
+  [data-component="35_HealthDashboard"] .card-title {
+    margin: 0;
+    font: 700 15px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="35_HealthDashboard"] .card-score {
+    margin-bottom: 16px;
+  }
+
+  [data-component="35_HealthDashboard"] .score-large {
+    display: block;
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--hd-green);
+  }
+
+  [data-component="35_HealthDashboard"] .score-fraction {
+    display: block;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--hd-cyan);
+  }
+
+  [data-component="35_HealthDashboard"] .card-level {
+    display: inline-block;
+    padding: 4px 10px;
+    background: rgba(111, 220, 140, 0.2);
+    color: var(--hd-green);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    border-radius: 3px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  [data-component="35_HealthDashboard"] .card-level.warning {
+    background: rgba(240, 179, 91, 0.2);
+    color: var(--hd-amber);
+  }
+
+  [data-component="35_HealthDashboard"] .card-level.critical,
+  [data-component="35_HealthDashboard"] .card-level.fail {
+    background: rgba(226, 116, 104, 0.2);
+    color: var(--hd-red);
+  }
+
+  [data-component="35_HealthDashboard"] .card-summary {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--hd-muted);
+  }
+
+  /* Footer */
+  [data-component="35_HealthDashboard"] .health-footer {
+    padding: 20px;
+    background: var(--hd-panel);
+    border: 1px solid var(--hd-line);
+    border-radius: 4px;
+    text-align: center;
+    font-size: 12px;
+  }
+
+  [data-component="35_HealthDashboard"] .health-footer p {
+    margin: 0;
+  }
+
+  [data-component="35_HealthDashboard"] .auto-refresh-notice {
+    color: var(--hd-muted);
+    font-size: 11px;
+    margin-left: 12px;
+  }
+
+  @media (max-width: 768px) {
+    [data-component="35_HealthDashboard"] .health-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    [data-component="35_HealthDashboard"] .btn-refresh {
+      width: 100%;
+      justify-content: center;
+    }
+
+    [data-component="35_HealthDashboard"] .overall-status {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    [data-component="35_HealthDashboard"] .metrics-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="35_HealthDashboard"] * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="35_HealthDashboard"]');
+  if (!root) return;
+
+  var loading = root.querySelector('[data-state="loading"]');
+  var error = root.querySelector('[data-state="error"]');
+  var announcement = root.querySelector('#health-announcement');
+  var content = root.querySelector('#health-content');
+
+  var overallStatus = root.querySelector('#overall-status');
+  var statusIcon = root.querySelector('#status-icon');
+  var statusTitle = root.querySelector('#status-title');
+  var statusDescription = root.querySelector('#status-description');
+  var scoreValue = root.querySelector('#score-value');
+
+  var maturityScore = root.querySelector('#maturity-score');
+  var maturityLevel = root.querySelector('#maturity-level');
+  var maturitySummary = root.querySelector('#maturity-summary');
+
+  var dependenciesScore = root.querySelector('#dependencies-score');
+  var dependenciesStatus = root.querySelector('#dependencies-status');
+  var dependenciesSummary = root.querySelector('#dependencies-summary');
+
+  var testsFraction = root.querySelector('#tests-fraction');
+  var testsStatus = root.querySelector('#tests-status');
+  var testsDuration = root.querySelector('#tests-duration');
+
+  var lastUpdate = root.querySelector('#last-update');
+  var btnRefresh = root.querySelector('#btn-refresh');
+  var refreshLabel = root.querySelector('#refresh-label');
+
+  var autoRefreshInterval = null;
+  var healthRequestSerial = 0;
+  var requestBusy = false;
+  var autoRefreshDelay = 30000;
+
+  function hasScriptRunner() {
+    return Boolean(window.google && window.google.script && window.google.script.run);
+  }
+
+  function finiteNumber(value, fallback) {
+    var number = Number(value);
+    return isFinite(number) && !isNaN(number) ? number : fallback;
+  }
+
+  function clampScore(value) {
+    var number = finiteNumber(value, null);
+    return number == null ? null : Math.max(0, Math.min(100, Math.round(number)));
+  }
+
+  function announce(text) {
+    if (announcement) announcement.textContent = text || '';
+  }
+
+  function setBusy(busy, message) {
+    requestBusy = Boolean(busy);
+    root.setAttribute('aria-busy', String(requestBusy));
+    if (content) content.setAttribute('aria-busy', String(requestBusy));
+    if (loading) {
+      if (message) loading.textContent = message;
+      loading.hidden = !requestBusy;
+    }
+    if (btnRefresh) {
+      btnRefresh.disabled = requestBusy;
+      btnRefresh.setAttribute('aria-busy', String(requestBusy));
+    }
+    if (refreshLabel) refreshLabel.textContent = requestBusy ? 'Atualizando…' : 'Atualizar agora';
+  }
+
+  function renderHealth(data) {
+    if (!data || typeof data !== 'object' || !data.overall || typeof data.overall !== 'object') { showUnavailable('A resposta de saúde está incompleta.', false); return; }
+    var overall = data.overall;
+    var status = String(overall.status || '').toLowerCase();
+    if (['healthy', 'degraded', 'critical'].indexOf(status) < 0) { showUnavailable('O diagnóstico devolveu um estado desconhecido.', false); return; }
+    var overallScore = clampScore(overall.score);
+    if (overallScore == null) { showUnavailable('O diagnóstico não devolveu um score válido.', false); return; }
+
+    if (scoreValue) scoreValue.textContent = overallScore + '%';
+    if (overallStatus) {
+      overallStatus.className = 'overall-status';
+      if (status === 'degraded') overallStatus.classList.add('warning');
+      if (status === 'critical') overallStatus.classList.add('critical');
+    }
+    if (statusIcon) statusIcon.textContent = status === 'healthy' ? '✓' : status === 'degraded' ? '⚠' : '✗';
+    if (statusTitle) statusTitle.textContent = status === 'healthy' ? 'Sistema operacional' : status === 'degraded' ? 'Sistema com degradação' : 'Sistema crítico';
+    if (statusDescription) statusDescription.textContent = status === 'healthy' ? 'Todos os componentes responderam dentro do esperado.' : status === 'degraded' ? 'Alguns componentes requerem atenção antes de ampliar o uso.' : 'O sistema requer correções antes de uma nova operação.';
+
+    var maturity = data.maturity && typeof data.maturity === 'object' ? data.maturity : {};
+    var maturityValue = clampScore(maturity.score);
+    if (maturityScore) maturityScore.textContent = maturityValue == null ? '—' : maturityValue + '%';
+    if (maturityLevel) {
+      var maturityText = String(maturity.level || 'não consultado').replace(/_/g, ' ');
+      maturityLevel.textContent = maturityText;
+      maturityLevel.className = 'card-level';
+      if (maturityValue != null && maturityValue < 65) maturityLevel.classList.add('warning');
+      if (maturityValue != null && maturityValue < 40) maturityLevel.classList.add('critical');
+    }
+    if (maturitySummary) maturitySummary.textContent = String(maturity.summary || 'Sem dados operacionais confirmados.');
+
+    var dependencies = data.dependencies && typeof data.dependencies === 'object' ? data.dependencies : {};
+    var dependencyValue = clampScore(dependencies.score);
+    var dependencyStatus = String(dependencies.status || 'não consultado').toLowerCase();
+    if (dependenciesScore) dependenciesScore.textContent = dependencyValue == null ? '—' : dependencyValue + '%';
+    if (dependenciesStatus) {
+      dependenciesStatus.textContent = dependencyStatus;
+      dependenciesStatus.className = 'card-level';
+      if (dependencyStatus === 'degraded') dependenciesStatus.classList.add('warning');
+      if (dependencyStatus === 'critical') dependenciesStatus.classList.add('critical');
+    }
+    if (dependenciesSummary) dependenciesSummary.textContent = String(dependencies.summary || 'Sem dados de dependências confirmados.');
+
+    var tests = data.tests && typeof data.tests === 'object' ? data.tests : {};
+    var passed = finiteNumber(tests.passed, null);
+    var total = finiteNumber(tests.total, null);
+    if (testsFraction) testsFraction.textContent = passed == null || total == null ? '—' : Math.max(0, Math.round(passed)) + '/' + Math.max(0, Math.round(total));
+    if (testsStatus) {
+      testsStatus.textContent = String(tests.status || 'não consultado');
+      testsStatus.className = 'card-level';
+      if (String(tests.status || '').toLowerCase() === 'fail') testsStatus.classList.add('fail');
+    }
+    if (testsDuration) {
+      var duration = finiteNumber(tests.durationMs, null);
+      testsDuration.textContent = duration == null ? '—' : Math.max(0, Math.round(duration)) + ' ms';
+    }
+
+    if (lastUpdate) {
+      var date = new Date(overall.timestamp);
+      if (isNaN(date.getTime())) { lastUpdate.textContent = 'Data indisponível'; lastUpdate.removeAttribute('datetime'); }
+      else { lastUpdate.textContent = date.toLocaleString('pt-BR'); lastUpdate.setAttribute('datetime', date.toISOString()); }
+    }
+    if (content) content.hidden = false;
+    setBusy(false);
+    announce('Diagnóstico atualizado: ' + (status === 'healthy' ? 'sistema operacional' : status === 'degraded' ? 'atenção necessária' : 'sistema crítico') + ', score ' + overallScore + '%.');
+  }
+
+  function showUnavailable(message, moveFocus) {
+    if (content) content.hidden = true;
+    setBusy(false);
+    if (error) {
+      error.textContent = message || 'Servidor indisponível. A saúde do sistema não foi confirmada.';
+      error.hidden = false;
+      if (moveFocus) { try { error.focus(); } catch (ignored) {} }
+    }
+    announce(message || 'Servidor indisponível. A saúde do sistema não foi confirmada.');
+  }
+
+  function loadHealth(reason) {
+    if (requestBusy) return;
+    var requestId = ++healthRequestSerial;
+    if (error) {
+      error.textContent = '';
+      error.hidden = true;
+    }
+    if (content) content.hidden = true;
+    setBusy(true, reason === 'manual' ? 'Atualizando métricas do sistema…' : 'Carregando métricas do sistema…');
+
+    if (!hasScriptRunner()) {
+      showUnavailable('Servidor indisponível. A saúde do sistema não foi confirmada.', true);
+      return;
+    }
+
+    window.google.script.run
+      .withSuccessHandler(function(response) {
+        if (requestId !== healthRequestSerial) return;
+        if (!response || !response.ok || !response.data) {
+          showUnavailable('Não foi possível confirmar as métricas de saúde.', true);
+          return;
+        }
+        renderHealth(response.data);
+      })
+      .withFailureHandler(function() {
+        if (requestId !== healthRequestSerial) return;
+        showUnavailable('Não foi possível confirmar as métricas de saúde.', true);
+      })
+      .getSystemHealth();
+  }
+
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', function() {
+      loadHealth('manual');
+    });
+  }
+
+  // Atualização automática a cada 30s, pausada quando a página não está visível.
+  function startAutoRefresh() {
+    if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+    autoRefreshInterval = setInterval(function() {
+      if (document.visibilityState === 'hidden' || requestBusy) return;
+      loadHealth('automatic');
+    }, autoRefreshDelay);
+  }
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && !requestBusy) loadHealth('visibility');
+  });
+
+  loadHealth('initial');
+  startAutoRefresh();
+
+  // Limpa interval ao sair da página
+  window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  });
+}());
+</script>

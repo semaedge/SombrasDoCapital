@@ -1,0 +1,185 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 14_EvidenceCard.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Cartão reutilizável de evidência
+
+  PRINCIPAIS FUNCIONALIDADES
+  Apresenta metadados de uma evidência e encaminha a abertura do seu detalhe.
+
+  CONTRATO DE FRONTEND
+  - Recebe um objeto por `evidence:card` ou consulta `getEvidenceDetail` quando recebe um ID.
+  - Insere conteúdo remoto exclusivamente com textContent.
+  - Mantém estados vazio, carregando, pronto e erro anunciáveis por teclado.
+  - Não armazena senha, token ou dados pessoais no DOM.
+-->
+<section data-component="14_EvidenceCard" aria-labelledby="evidence-card-heading" aria-describedby="evidence-card-status" aria-busy="false">
+  <h2 id="evidence-card-heading">Cartão de evidência</h2>
+
+  <p data-state="loading" id="evidence-card-loading" hidden role="status" aria-live="polite" aria-atomic="true">Carregando dados do terminal…</p>
+  <p data-state="empty" id="evidence-card-empty" role="status" aria-live="polite" aria-atomic="true">Selecione uma evidência para visualizar seus metadados.</p>
+  <p data-state="error" id="evidence-card-status" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível concluir a operação.</p>
+  <button type="button" class="retry-button" data-action="retry" hidden>TENTAR NOVAMENTE</button>
+
+  <article data-slot="content" class="evidence-card" hidden aria-labelledby="evidence-card-title">
+    <div class="evidence-card-head">
+      <span class="type" data-field="type">EVIDÊNCIA</span>
+      <span class="phase" data-field="phase">Fase não informada</span>
+    </div>
+    <h3 id="evidence-card-title" data-field="title">Evidência sem título</h3>
+    <dl class="evidence-meta">
+      <div><dt>Natureza</dt><dd data-field="nature">NATUREZA NÃO CLASSIFICADA</dd></div>
+      <div><dt>Origem</dt><dd data-field="source">Origem não informada</dd></div>
+      <div><dt>Confiabilidade</dt><dd data-field="reliability">Não classificada</dd></div>
+    </dl>
+    <p class="nature-note" data-field="natureNote">Natureza do conteúdo não informada; requer revisão docente.</p>
+    <p class="provenance" data-field="provenance" hidden></p>
+    <button type="button" class="open-button" data-action="open" disabled>ABRIR EVIDÊNCIA</button>
+  </article>
+</section>
+
+<style>
+  [data-component="14_EvidenceCard"] { color: var(--color-light-gray); background: var(--color-dark-graphite); padding: 18px; border: 1px solid var(--color-slate-gray); font-family: "Courier New", monospace; }
+  [data-component="14_EvidenceCard"] h2 { margin: 0 0 14px; font: 700 18px/1.2 Georgia, serif; }
+  [data-component="14_EvidenceCard"] .evidence-card { padding: 16px; border: 1px solid var(--color-slate-gray); background: var(--color-deep-shadow); }
+  [data-component="14_EvidenceCard"] .evidence-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+  [data-component="14_EvidenceCard"] .type { color: var(--color-neon-cyan); font-size: 10px; letter-spacing: .1em; }
+  [data-component="14_EvidenceCard"] .phase { color: var(--color-warning-amber); font-size: 10px; }
+  [data-component="14_EvidenceCard"] h3 { margin: 12px 0 16px; font: 700 20px/1.25 Georgia, serif; }
+  [data-component="14_EvidenceCard"] .evidence-meta { display: grid; gap: 8px; margin: 0; }
+  [data-component="14_EvidenceCard"] .evidence-meta div { display: grid; grid-template-columns: minmax(88px, .28fr) 1fr; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(158,170,174,.22); }
+  [data-component="14_EvidenceCard"] dt { color: #9eaaae; font-size: 10px; }
+  [data-component="14_EvidenceCard"] dd { margin: 0; color: #d5dddf; font-size: 11px; line-height: 1.45; }
+  [data-component="14_EvidenceCard"] .nature-note, [data-component="14_EvidenceCard"] .provenance { margin: 14px 0 0; color: #9eaaae; font-size: 10px; line-height: 1.5; }
+  [data-component="14_EvidenceCard"] .provenance { padding-left: 10px; border-left: 2px solid var(--color-neon-cyan); }
+  [data-component="14_EvidenceCard"] .open-button { margin-top: 16px; padding: 10px 13px; border: 1px solid var(--color-neon-cyan); color: #071011; background: var(--color-neon-cyan); font: 700 10px "Courier New", monospace; cursor: pointer; }
+  [data-component="14_EvidenceCard"] .open-button:hover, [data-component="14_EvidenceCard"] .open-button:focus-visible { outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="14_EvidenceCard"] .open-button:disabled { cursor: not-allowed; opacity: .55; }
+  [data-component="14_EvidenceCard"] .retry-button { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--color-neon-cyan); color: var(--color-neon-cyan); background: transparent; font: 700 10px "Courier New", monospace; cursor: pointer; }
+  [data-component="14_EvidenceCard"] .retry-button:hover, [data-component="14_EvidenceCard"] .retry-button:focus-visible { color: #071011; background: var(--color-neon-cyan); outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="14_EvidenceCard"] [data-state="loading"], [data-component="14_EvidenceCard"] [data-state="empty"] { color: #9eaaae; font-size: 11px; line-height: 1.5; }
+  [data-component="14_EvidenceCard"] [data-state="error"] { padding: 10px; border-left: 2px solid var(--color-coral-red); color: #f0aaa2; font-size: 11px; line-height: 1.5; }
+  @media (max-width: 520px) { [data-component="14_EvidenceCard"] .evidence-meta div { grid-template-columns: 1fr; gap: 3px; } }
+</style>
+
+<script>(function() {
+  var root = document.querySelector('[data-component="14_EvidenceCard"]');
+  if (!root) return;
+
+  var loading = root.querySelector('[data-state="loading"]');
+  var empty = root.querySelector('[data-state="empty"]');
+  var error = root.querySelector('[data-state="error"]');
+  var card = root.querySelector('[data-slot="content"]');
+  var openButton = root.querySelector('[data-action="open"]');
+  var retryButton = root.querySelector('[data-action="retry"]');
+  var fields = {};
+  root.querySelectorAll('[data-field]').forEach(function(field) { fields[field.getAttribute('data-field')] = field; });
+  var activeEvidenceId = '';
+
+  function setState(state, message) {
+    root.dataset.state = state;
+    root.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+    if (loading) loading.hidden = state !== 'loading';
+    if (empty) empty.hidden = state !== 'empty';
+    if (error) {
+      if (message) error.textContent = message;
+      error.hidden = state !== 'error';
+    }
+    if (retryButton) retryButton.hidden = state !== 'error' || !activeEvidenceId;
+    if (card) card.hidden = state !== 'ready';
+    if (openButton) openButton.disabled = state !== 'ready' || !activeEvidenceId;
+  }
+
+  function text(value, fallback) {
+    return value === undefined || value === null || value === '' ? fallback : String(value);
+  }
+
+  function renderEvidence(item) {
+    if (!item || typeof item !== 'object' || !item.id) {
+      activeEvidenceId = '';
+      setState('empty');
+      return;
+    }
+    activeEvidenceId = String(item.id);
+    if (fields.type) fields.type.textContent = text(item.type || item.format, 'document').toUpperCase();
+    if (fields.phase) fields.phase.textContent = text(item.phase, 'Fase não informada');
+    if (fields.title) fields.title.textContent = text(item.title, 'Evidência sem título');
+    if (fields.nature) fields.nature.textContent = text(item.contentNatureLabel, 'NATUREZA NÃO CLASSIFICADA');
+    if (fields.source) fields.source.textContent = text(item.source, 'Origem não informada');
+    if (fields.reliability) fields.reliability.textContent = text(item.reliability, 'Não classificada');
+    if (fields.natureNote) fields.natureNote.textContent = text(item.natureNote, 'Natureza do conteúdo não informada; requer revisão docente.');
+
+    var provenance = [item.sourceTitle, item.sourceOrganization, item.sourceVersion ? 'Versão: ' + item.sourceVersion : '', item.sourceUrl ? 'URL: ' + item.sourceUrl : '', item.accessedAt ? 'Acesso: ' + item.accessedAt : ''].filter(Boolean).join(' · ');
+    if (fields.provenance) {
+      fields.provenance.textContent = provenance ? 'Proveniência: ' + provenance : '';
+      fields.provenance.hidden = !provenance;
+    }
+    if (openButton) openButton.setAttribute('aria-label', 'Abrir evidência: ' + text(item.title, 'Evidência sem título'));
+    setState('ready');
+  }
+
+  function restoreUserId() {
+    if (window.currentUserId) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.user || !saved.user.id) return '';
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function loadEvidence(evidenceId) {
+    if (!evidenceId) {
+      activeEvidenceId = '';
+      setState('empty');
+      return;
+    }
+    activeEvidenceId = String(evidenceId);
+    var userId = restoreUserId();
+    if (!userId) {
+      setState('error', 'Sua sessão não está ativa. Entre novamente para consultar a evidência.');
+      return;
+    }
+    if (!window.google || !google.script || !google.script.run) {
+      setState('error', 'Servidor indisponível. A evidência não foi sincronizada.');
+      return;
+    }
+    setState('loading');
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (!response || !response.ok) {
+          setState('error', response && response.error && response.error.message || 'Não foi possível carregar a evidência.');
+          return;
+        }
+        renderEvidence(response.data);
+      })
+      .withFailureHandler(function() {
+        setState('error', 'Falha de sincronização. Tente novamente.');
+      })
+      .getEvidenceDetail(userId, String(evidenceId));
+  }
+
+  if (openButton) {
+    openButton.addEventListener('click', function() {
+      if (!activeEvidenceId) return;
+      window.dispatchEvent(new CustomEvent('evidence:open', { detail: activeEvidenceId }));
+    });
+  }
+  if (retryButton) retryButton.addEventListener('click', function() { loadEvidence(activeEvidenceId); });
+
+  window.addEventListener('evidence:card', function(event) {
+    var detail = event && event.detail;
+    if (detail && typeof detail === 'object') {
+      renderEvidence(detail);
+    } else {
+      loadEvidence(detail);
+    }
+  });
+
+  var initialId = root.getAttribute('data-evidence-id');
+  if (initialId) loadEvidence(initialId);
+  else setState('empty');
+}());</script>

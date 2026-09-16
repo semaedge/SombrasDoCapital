@@ -1,0 +1,598 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 23_ReportEvidencePicker.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Seletor de evidências com seleção ordenada e estados acessíveis
+
+  PRINCIPAIS FUNCIONALIDADES
+  Seletor de evidências.
+
+  INTEGRAÇÕES
+  Seleciona e ordena provas que sustentam a reportagem final.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva com cartões compactos, seleção ordenada e controle de 3 slots.
+-->
+<section data-component="23_ReportEvidencePicker" aria-labelledby="evidence-picker-title" aria-describedby="evidence-picker-hint" aria-busy="false">
+  <div class="picker-header">
+    <div>
+      <span class="picker-badge">[ ARQUIVO // EVIDÊNCIAS DESBLOQUEADAS ]</span>
+      <h3 id="evidence-picker-title">Seletor de Evidências</h3>
+    </div>
+    <div class="picker-actions">
+      <span class="picker-status-tag" id="picker-status-badge" role="status" aria-live="polite" aria-atomic="true">0 / 3 selecionadas</span>
+      <button type="button" id="picker-refresh" class="picker-action picker-refresh" aria-label="Atualizar catálogo de evidências">ATUALIZAR</button>
+    </div>
+  </div>
+
+  <p class="picker-hint" id="evidence-picker-hint">Selecione exatamente 3 evidências para sustentar a manchete e a tese central da reportagem. A ordem de seleção define os três slots probatórios.</p>
+
+  <p data-state="loading" id="picker-loading" class="picker-msg" hidden role="status" aria-live="polite" aria-atomic="true">Carregando catálogo de evidências…</p>
+  <p data-state="empty" id="picker-empty" class="picker-msg" hidden role="status" aria-live="polite" aria-atomic="true">Nenhuma evidência desbloqueada nesta sessão.</p>
+  <p data-state="error" id="picker-error" class="picker-msg picker-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível carregar as evidências.</p>
+  <button type="button" id="picker-retry" class="picker-action" hidden>TENTAR NOVAMENTE</button>
+
+  <div class="evidence-picker-list" data-slot="content" id="evidence-picker-list" role="list" aria-live="polite" aria-atomic="false"></div>
+</section>
+
+<style>
+  [data-component="23_ReportEvidencePicker"] {
+    --ep-bg: #141b1d;
+    --ep-card: #101618;
+    --ep-line: #29373c;
+    --ep-cyan: var(--color-neon-cyan);
+    --ep-amber: var(--color-warning-amber);
+    --ep-ink: var(--color-light-gray);
+    --ep-muted: #8c9ca2;
+    background: var(--ep-bg);
+    border: 1px solid var(--ep-line);
+    border-radius: 4px;
+    padding: 20px;
+    font-family: "IBM Plex Mono", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-badge {
+    font-size: 9px;
+    letter-spacing: .14em;
+    color: var(--ep-cyan);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  [data-component="23_ReportEvidencePicker"] h3 {
+    margin: 0;
+    font: 700 17px/1.2 Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-status-tag {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ep-amber);
+    background: rgba(240, 179, 91, 0.12);
+    border: 1px solid var(--ep-amber);
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: all .2s ease;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-status-tag.complete {
+    color: #071011;
+    background: var(--ep-cyan);
+    border-color: var(--ep-cyan);
+    box-shadow: 0 0 10px rgba(104, 212, 208, 0.4);
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-hint {
+    margin: 0 0 16px;
+    color: var(--ep-muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-action {
+    margin: 0 0 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--ep-cyan);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ep-cyan);
+    font: 700 10px/1.2 "IBM Plex Mono", monospace;
+    letter-spacing: .08em;
+    cursor: pointer;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-refresh {
+    margin: 0;
+    padding: 6px 8px;
+    font-size: 9px;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-action:hover,
+  [data-component="23_ReportEvidencePicker"] .picker-action:focus-visible {
+    background: var(--ep-cyan);
+    color: #071011;
+    outline: 2px solid var(--ep-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-action:disabled {
+    cursor: wait;
+    opacity: .55;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-msg {
+    padding: 10px 14px;
+    background: var(--ep-card);
+    border-left: 3px solid var(--ep-cyan);
+    font-size: 11px;
+    margin-bottom: 12px;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .picker-error {
+    border-left-color: var(--color-coral-red);
+    color: #f7a8a0;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .evidence-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 480px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  /* Cartões Compactos de Evidências */
+  [data-component="23_ReportEvidencePicker"] .compact-evidence-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--ep-card);
+    border: 1px solid var(--ep-line);
+    border-radius: 3px;
+    transition: all .15s ease;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .compact-evidence-card[data-selected="true"] {
+    border-color: var(--ep-cyan);
+    background: #112023;
+    box-shadow: 0 0 10px rgba(104, 212, 208, 0.2);
+  }
+
+  [data-component="23_ReportEvidencePicker"] .compact-evidence-card:hover {
+    background: #172124;
+    border-color: #3b4e55;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .compact-evidence-card.card-selected {
+    border-color: var(--ep-cyan);
+    background: #112023;
+    box-shadow: 0 0 10px rgba(104, 212, 208, 0.2);
+  }
+
+  [data-component="23_ReportEvidencePicker"] .card-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .card-type-tag {
+    font-size: 9px;
+    letter-spacing: .1em;
+    color: var(--ep-amber);
+    display: inline-block;
+    margin-bottom: 2px;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .card-title-text {
+    font: 700 13px/1.25 Georgia, serif;
+    color: #ffffff;
+    margin: 0 0 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .card-reliability {
+    font-size: 10px;
+    color: var(--ep-muted);
+  }
+
+  [data-component="23_ReportEvidencePicker"] .card-selection-order {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 2px 5px;
+    border-radius: 2px;
+    background: var(--ep-cyan);
+    color: #071011;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .06em;
+  }
+
+  /* Botão de Alternância (+ / -) */
+  [data-component="23_ReportEvidencePicker"] .btn-toggle-slot {
+    width: 34px;
+    height: 34px;
+    border-radius: 3px;
+    border: 1px solid var(--ep-cyan);
+    background: rgba(104, 212, 208, 0.1);
+    color: var(--ep-cyan);
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all .15s ease;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .btn-toggle-slot:hover,
+  [data-component="23_ReportEvidencePicker"] .btn-toggle-slot:focus-visible {
+    outline: 2px solid var(--ep-amber);
+    outline-offset: 1px;
+    background: var(--ep-cyan);
+    color: #071011;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .btn-toggle-slot.btn-remove {
+    border-color: var(--ep-amber);
+    color: var(--ep-amber);
+    background: rgba(240, 179, 91, 0.12);
+  }
+
+  [data-component="23_ReportEvidencePicker"] .btn-toggle-slot.btn-remove:hover,
+  [data-component="23_ReportEvidencePicker"] .btn-toggle-slot.btn-remove:focus-visible {
+    background: var(--ep-amber);
+    color: #071011;
+  }
+
+  [data-component="23_ReportEvidencePicker"] .btn-toggle-slot:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: #354449;
+    color: #5d6e74;
+    background: transparent;
+  }
+
+  @media (max-width: 560px) {
+    [data-component="23_ReportEvidencePicker"] {
+      padding: 16px;
+    }
+
+    [data-component="23_ReportEvidencePicker"] .picker-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    [data-component="23_ReportEvidencePicker"] .picker-actions {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="23_ReportEvidencePicker"] .picker-status-tag,
+    [data-component="23_ReportEvidencePicker"] .compact-evidence-card,
+    [data-component="23_ReportEvidencePicker"] .btn-toggle-slot {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="23_ReportEvidencePicker"]');
+  if (!root) return;
+
+  var loading = root.querySelector('[data-state="loading"]');
+  var empty = root.querySelector('[data-state="empty"]');
+  var error = root.querySelector('[data-state="error"]');
+  var content = root.querySelector('[data-slot="content"]');
+  var statusBadge = root.querySelector('#picker-status-badge');
+  var refresh = root.querySelector('#picker-refresh');
+  var retry = root.querySelector('#picker-retry');
+
+  var evidenceList = [];
+  var selectedEvidence = [];
+  var loadSerial = 0;
+
+  function displayText(value, fallback) {
+    if (typeof value === 'string') {
+      var trimmed = value.trim();
+      return trimmed || fallback;
+    }
+    if (typeof value === 'number' && isFinite(value)) return String(value);
+    return fallback;
+  }
+
+  function normalizeEvidence(items) {
+    if (!Array.isArray(items)) return null;
+    var seen = {};
+    var normalized = [];
+    items.forEach(function(item) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+      var id = displayText(item.id, '');
+      if (!id || seen[id]) return;
+      seen[id] = true;
+      normalized.push({
+        id: id,
+        type: displayText(item.type, 'DOCUMENTO'),
+        title: displayText(item.title || item.name, 'Evidência sem título'),
+        contentNatureLabel: displayText(item.contentNatureLabel, 'NATUREZA NÃO CLASSIFICADA'),
+        reliability: displayText(item.reliability, 'não classificada'),
+        phase: displayText(item.phase, 'Fase não informada')
+      });
+    });
+    return normalized;
+  }
+
+  function restoreSessionState() {
+    if (window.currentUserId) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.token || !saved.user || !saved.user.id) return '';
+      window.currentSessionToken = String(saved.token);
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (ignored) {
+      return '';
+    }
+  }
+
+  function findSelectedIndex(id) {
+    for (var i = 0; i < selectedEvidence.length; i++) {
+      if (selectedEvidence[i].id === id) return i;
+    }
+    return -1;
+  }
+
+  function emitSelection() {
+    window.dispatchEvent(new CustomEvent('report:evidence-selection', {
+      detail: {
+        evidenceIds: selectedEvidence.map(function(item) { return item.id; }),
+        items: selectedEvidence.slice()
+      }
+    }));
+  }
+
+  function updateSelected() {
+    var count = selectedEvidence.length;
+    if (statusBadge) {
+      statusBadge.textContent = count + ' / 3 selecionadas';
+      statusBadge.classList.toggle('complete', count === 3);
+    }
+
+    if (content) {
+      var cards = content.querySelectorAll('.compact-evidence-card');
+      cards.forEach(function(card) {
+        var id = card.getAttribute('data-id') || '';
+        var selectedIndex = findSelectedIndex(id);
+        var isSelected = selectedIndex >= 0;
+        var item = isSelected ? selectedEvidence[selectedIndex] : null;
+        var title = card.getAttribute('data-title') || 'esta evidência';
+        var button = card.querySelector('.btn-toggle-slot');
+        var order = card.querySelector('.card-selection-order');
+
+        card.classList.toggle('card-selected', isSelected);
+        card.setAttribute('data-selected', isSelected ? 'true' : 'false');
+
+        if (order) {
+          order.hidden = !isSelected;
+          order.textContent = isSelected ? 'SLOT ' + (selectedIndex + 1) : '';
+        }
+
+        if (!button) return;
+        if (isSelected) {
+          button.textContent = '−';
+          button.className = 'btn-toggle-slot btn-remove';
+          button.disabled = false;
+          button.setAttribute('aria-pressed', 'true');
+          button.setAttribute('aria-label', 'Remover ' + title + ' da reportagem, atualmente no slot ' + (selectedIndex + 1));
+        } else {
+          button.textContent = '+';
+          button.className = 'btn-toggle-slot';
+          button.disabled = count >= 3;
+          button.setAttribute('aria-pressed', 'false');
+          button.setAttribute('aria-label', 'Adicionar ' + title + ' à reportagem');
+        }
+      });
+    }
+    emitSelection();
+  }
+
+  function setBusy(isBusy) {
+    root.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    if (loading) loading.hidden = !isBusy;
+    if (refresh) refresh.disabled = isBusy;
+    if (isBusy) {
+      if (empty) empty.hidden = true;
+      if (error) error.hidden = true;
+      if (retry) retry.hidden = true;
+    }
+  }
+
+  function showError(message) {
+    setBusy(false);
+    selectedEvidence = [];
+    if (content) content.textContent = '';
+    if (empty) empty.hidden = true;
+    if (error) {
+      error.textContent = message;
+      error.hidden = false;
+      error.focus();
+    }
+    if (retry) retry.hidden = false;
+    updateSelected();
+  }
+
+  function renderList(items) {
+    var previousIds = selectedEvidence.map(function(item) { return item.id; });
+    evidenceList = items;
+    selectedEvidence = previousIds.map(function(id) {
+      for (var i = 0; i < evidenceList.length; i++) {
+        if (evidenceList[i].id === id) return evidenceList[i];
+      }
+      return null;
+    }).filter(function(item) { return item !== null; }).slice(0, 3);
+
+    if (content) content.textContent = '';
+    if (!evidenceList.length) {
+      if (empty) empty.hidden = false;
+      updateSelected();
+      return;
+    }
+    if (empty) empty.hidden = true;
+
+    evidenceList.forEach(function(item, index) {
+      var card = document.createElement('article');
+      card.className = 'compact-evidence-card';
+      card.setAttribute('role', 'listitem');
+      card.setAttribute('data-id', item.id);
+      card.setAttribute('data-title', item.title);
+      card.setAttribute('data-selected', 'false');
+      card.setAttribute('aria-labelledby', 'picker-evidence-title-' + index);
+
+      var info = document.createElement('div');
+      info.className = 'card-info';
+
+      var order = document.createElement('span');
+      order.className = 'card-selection-order';
+      order.hidden = true;
+      order.setAttribute('aria-hidden', 'true');
+      info.appendChild(order);
+
+      var typeTag = document.createElement('span');
+      typeTag.className = 'card-type-tag';
+      typeTag.textContent = item.type.toUpperCase();
+      info.appendChild(typeTag);
+
+      var title = document.createElement('h4');
+      title.className = 'card-title-text';
+      title.id = 'picker-evidence-title-' + index;
+      title.textContent = item.title;
+      info.appendChild(title);
+
+      var rel = document.createElement('span');
+      rel.className = 'card-reliability';
+      rel.textContent = item.contentNatureLabel + ' · Confiabilidade: ' + item.reliability + ' · ' + item.phase;
+      info.appendChild(rel);
+      card.appendChild(info);
+
+      var toggleButton = document.createElement('button');
+      toggleButton.type = 'button';
+      toggleButton.className = 'btn-toggle-slot';
+      toggleButton.textContent = '+';
+      toggleButton.setAttribute('aria-pressed', 'false');
+      toggleButton.setAttribute('aria-describedby', 'picker-evidence-title-' + index);
+      toggleButton.setAttribute('aria-label', 'Adicionar ' + item.title + ' à reportagem');
+      toggleButton.addEventListener('click', function() {
+        var selectedIndex = findSelectedIndex(item.id);
+        if (selectedIndex >= 0) {
+          selectedEvidence.splice(selectedIndex, 1);
+        } else if (selectedEvidence.length < 3) {
+          selectedEvidence.push(item);
+        }
+        updateSelected();
+      });
+      card.appendChild(toggleButton);
+      if (content) content.appendChild(card);
+    });
+    updateSelected();
+  }
+
+  function responseErrorMessage(response) {
+    var code = response && response.error && response.error.code;
+    if (code === 'INVALID_USER') return 'Sua sessão não está ativa. Entre novamente para consultar as evidências.';
+    return 'Não foi possível carregar as evidências. Tente novamente.';
+  }
+
+  function load() {
+    var currentLoad = ++loadSerial;
+    setBusy(true);
+    if (content) content.textContent = '';
+    var userId = restoreSessionState();
+    if (!userId) {
+      showError('Sua sessão não está ativa. Entre novamente para consultar as evidências.');
+      return;
+    }
+    if (!window.google || !google.script || !google.script.run) {
+      showError('Servidor indisponível. Tente novamente quando a conexão estiver pronta.');
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (currentLoad !== loadSerial) return;
+        if (!response || !response.ok) {
+          showError(responseErrorMessage(response));
+          return;
+        }
+        var items = normalizeEvidence(response.data);
+        if (!items) {
+          showError('O servidor devolveu um formato de evidências inválido.');
+          return;
+        }
+        setBusy(false);
+        if (error) error.hidden = true;
+        if (retry) retry.hidden = true;
+        renderList(items);
+      })
+      .withFailureHandler(function() {
+        if (currentLoad !== loadSerial) return;
+        showError('Falha de comunicação com o servidor. Tente novamente.');
+      })
+      .listUnlockedEvidence(userId);
+  }
+
+  if (refresh) refresh.addEventListener('click', load);
+  if (retry) retry.addEventListener('click', load);
+  load();
+}());
+</script>

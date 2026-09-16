@@ -1,0 +1,756 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 26_ReflectionForm.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Formulário reflexivo com validação e estados acessíveis
+
+  PRINCIPAIS FUNCIONALIDADES
+  Reflexão final.
+
+  INTEGRAÇÕES
+  Pergunta sobre rigor ético, velocidade e justificativa da decisão.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva com 3 perguntas reflexivas estruturadas, escala Likert (1 a 5),
+  salvamento controlado e impressão do dossiê.
+-->
+<section data-component="26_ReflectionForm" aria-labelledby="reflection-title" aria-describedby="reflection-description" aria-busy="false">
+  <div class="reflection-container">
+    <header class="reflection-header">
+      <span class="reflection-tag">[ METACOGNIÇÃO // SÍNTESE DO APRENDIZADO ]</span>
+      <h2 id="reflection-title">Jornada de Reflexão Pós-Fechamento</h2>
+      <p id="reflection-description" class="reflection-lead">Reserve alguns minutos para registrar seu processo de tomada de decisão, os dilemas enfrentados e o impacto das escolhas editoriais.</p>
+    </header>
+
+    <form id="reflection-form">
+      <!-- Pergunta 1 -->
+      <div class="question-group">
+        <div class="question-heading">
+          <label for="reflection-q1" class="question-label">
+            <span class="question-num">01.</span>
+            Qual foi o momento mais desafiador na confrontação entre o depoimento das fontes e os documentos oficiais?
+          </label>
+          <span id="reflection-q1-counter" class="reflection-counter" aria-live="polite" aria-atomic="true">0 / 1000</span>
+        </div>
+        <textarea
+          id="reflection-q1"
+          name="q1"
+          rows="3"
+          maxlength="1000"
+          placeholder="Ex: Identificar contradições entre o áudio da fonte anônima e as datas das planilhas de doação..."
+          aria-describedby="reflection-q1-counter"
+          required
+        ></textarea>
+      </div>
+
+      <!-- Pergunta 2 -->
+      <div class="question-group">
+        <div class="question-heading">
+          <label for="reflection-q2" class="question-label">
+            <span class="question-num">02.</span>
+            Se você pudesse refazer uma decisão tomada sob pressão de tempo no modal, qual alteraria e por quê?
+          </label>
+          <span id="reflection-q2-counter" class="reflection-counter" aria-live="polite" aria-atomic="true">0 / 1000</span>
+        </div>
+        <textarea
+          id="reflection-q2"
+          name="q2"
+          rows="3"
+          maxlength="1000"
+          placeholder="Ex: Teria aguardado mais tempo para cruzar o contrato em vez de publicar precipitadamente..."
+          aria-describedby="reflection-q2-counter"
+          required
+        ></textarea>
+      </div>
+
+      <!-- Pergunta 3 -->
+      <div class="question-group">
+        <div class="question-heading">
+          <label for="reflection-q3" class="question-label">
+            <span class="question-num">03.</span>
+            De que forma a análise de evidências e dados transformou sua percepção sobre o trabalho de reportagem investigativa?
+          </label>
+          <span id="reflection-q3-counter" class="reflection-counter" aria-live="polite" aria-atomic="true">0 / 1000</span>
+        </div>
+        <textarea
+          id="reflection-q3"
+          name="q3"
+          rows="3"
+          maxlength="1000"
+          placeholder="Ex: Compreendi que o furo jornalístico só se sustenta quando respaldado por uma cadeia de custódia documental sólida..."
+          aria-describedby="reflection-q3-counter"
+          required
+        ></textarea>
+      </div>
+
+      <!-- Seletor em Escala Likert de 1 a 5: Autoavaliação de Segurança -->
+      <div class="likert-group">
+        <fieldset class="likert-fieldset">
+          <legend class="likert-legend">
+            <span class="question-num">04.</span>
+            Autoavaliação: Em uma escala de 1 a 5, o quão seguro(a) você se sentiu nas decisões tomadas sob pressão de prazo?
+          </legend>
+          
+          <div class="likert-options" role="radiogroup" aria-label="Escala Likert de segurança nas decisões de 1 a 5" aria-required="true">
+            <label class="likert-option">
+              <input type="radio" name="likert-security" value="1" required>
+              <span class="likert-box">
+                <strong class="likert-score">1</strong>
+                <span class="likert-text">Muito Inseguro(a)</span>
+              </span>
+            </label>
+
+            <label class="likert-option">
+              <input type="radio" name="likert-security" value="2">
+              <span class="likert-box">
+                <strong class="likert-score">2</strong>
+                <span class="likert-text">Pouco Seguro(a)</span>
+              </span>
+            </label>
+
+            <label class="likert-option">
+              <input type="radio" name="likert-security" value="3" checked>
+              <span class="likert-box">
+                <strong class="likert-score">3</strong>
+                <span class="likert-text">Parcialmente Seguro(a)</span>
+              </span>
+            </label>
+
+            <label class="likert-option">
+              <input type="radio" name="likert-security" value="4">
+              <span class="likert-box">
+                <strong class="likert-score">4</strong>
+                <span class="likert-text">Seguro(a)</span>
+              </span>
+            </label>
+
+            <label class="likert-option">
+              <input type="radio" name="likert-security" value="5">
+              <span class="likert-box">
+                <strong class="likert-score">5</strong>
+                <span class="likert-text">Totalmente Confiante</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+      </div>
+
+      <!-- Barra de Ações -->
+      <div class="reflection-actions">
+        <button type="submit" class="submit-reflection-btn" id="btn-submit-reflection" aria-describedby="reflection-submit-status">
+          <span id="submit-reflection-label">ENVIAR REFLEXÃO FORMATIVA</span> <span aria-hidden="true">→</span>
+        </button>
+
+        <button type="button" class="pdf-action-btn" id="btn-reflection-pdf" aria-describedby="reflection-pdf-hint">
+          <span aria-hidden="true">📄</span> Baixar Dossiê Completo em PDF
+        </button>
+        <span id="reflection-pdf-hint" class="sr-only">Abre a caixa de impressão do dossiê.</span>
+      </div>
+
+      <!-- Mensagens de Estado -->
+      <p id="reflection-submit-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+      <p data-state="loading" id="reflection-loading" class="form-status-msg" hidden role="status" aria-live="polite" aria-atomic="true">Registrando suas reflexões no prontuário do caso…</p>
+      <p data-state="success" id="reflection-success" class="form-status-msg success" hidden role="status" aria-live="polite" aria-atomic="true" tabindex="-1">✓ Reflexão formativa registrada com sucesso! Dossiê pronto para arquivamento.</p>
+      <p data-state="error" id="reflection-error" class="form-status-msg error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível salvar a reflexão. Tente novamente.</p>
+    </form>
+  </div>
+</section>
+
+<style>
+  [data-component="26_ReflectionForm"] {
+    --rf-bg: var(--color-deep-shadow);
+    --rf-panel: var(--color-dark-graphite);
+    --rf-line: #293539;
+    --rf-cyan: var(--color-neon-cyan);
+    --rf-amber: var(--color-warning-amber);
+    --rf-ink: var(--color-light-gray);
+    --rf-muted: var(--color-medium-gray);
+    padding: 24px;
+    color: var(--rf-ink);
+    background: var(--rf-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="26_ReflectionForm"] .reflection-container {
+    max-width: 840px;
+    margin: 0 auto;
+    background: var(--rf-panel);
+    border: 1px solid var(--rf-line);
+    border-radius: 4px;
+    padding: 32px 28px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  }
+
+  [data-component="26_ReflectionForm"] .reflection-header {
+    border-bottom: 1px solid var(--rf-line);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+
+  [data-component="26_ReflectionForm"] .reflection-tag {
+    color: var(--rf-amber);
+    font-size: 10px;
+    letter-spacing: .14em;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  [data-component="26_ReflectionForm"] h2 {
+    margin: 4px 0 8px;
+    font: 700 clamp(22px, 3.5vw, 26px) Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="26_ReflectionForm"] .reflection-lead {
+    margin: 0;
+    color: var(--rf-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  [data-component="26_ReflectionForm"] .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  [data-component="26_ReflectionForm"] .question-group {
+    margin-bottom: 22px;
+  }
+
+  [data-component="26_ReflectionForm"] .question-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  [data-component="26_ReflectionForm"] .question-label {
+    display: block;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #ffffff;
+    margin-bottom: 0;
+    font-family: Georgia, serif;
+  }
+
+  [data-component="26_ReflectionForm"] .reflection-counter {
+    flex: 0 0 auto;
+    color: var(--rf-muted);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  [data-component="26_ReflectionForm"] .question-num {
+    color: var(--rf-cyan);
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 12px;
+    margin-right: 4px;
+  }
+
+  [data-component="26_ReflectionForm"] textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: #0f1416;
+    border: 1px solid var(--rf-line);
+    color: var(--rf-ink);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 3px;
+    box-sizing: border-box;
+    transition: border-color .15s ease;
+  }
+
+  [data-component="26_ReflectionForm"] textarea:focus {
+    outline: 2px solid var(--rf-cyan);
+    outline-offset: 1px;
+    border-color: var(--rf-cyan);
+  }
+
+  [data-component="26_ReflectionForm"] textarea[aria-invalid="true"] {
+    border-color: var(--color-coral-red);
+  }
+
+  /* Escala Likert de 1 a 5 */
+  [data-component="26_ReflectionForm"] .likert-group {
+    margin: 28px 0;
+    padding: 20px;
+    background: #0f1416;
+    border: 1px solid var(--rf-line);
+    border-radius: 4px;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-legend {
+    font-size: 13px;
+    color: #ffffff;
+    font-family: Georgia, serif;
+    line-height: 1.45;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-options {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+
+  @media (max-width: 640px) {
+    [data-component="26_ReflectionForm"] .likert-options {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  [data-component="26_ReflectionForm"] .likert-option {
+    display: block;
+    cursor: pointer;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 12px 6px;
+    background: #151b1e;
+    border: 1px solid var(--rf-line);
+    border-radius: 3px;
+    transition: all .15s ease;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-option input:checked + .likert-box {
+    border-color: var(--rf-cyan);
+    background: #162427;
+    box-shadow: 0 0 10px rgba(104, 212, 208, 0.3);
+  }
+
+  [data-component="26_ReflectionForm"] .likert-option input:focus-visible + .likert-box {
+    outline: 2px solid var(--rf-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-option:hover .likert-box {
+    border-color: #3f5157;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-score {
+    font-size: 16px;
+    color: var(--rf-cyan);
+    font-family: "IBM Plex Mono", monospace;
+    margin-bottom: 4px;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-text {
+    font-size: 10px;
+    color: var(--rf-muted);
+    line-height: 1.25;
+  }
+
+  [data-component="26_ReflectionForm"] .likert-option input:checked + .likert-box .likert-text {
+    color: #ffffff;
+  }
+
+  /* Ações */
+  [data-component="26_ReflectionForm"] .reflection-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  [data-component="26_ReflectionForm"] .submit-reflection-btn {
+    flex: 1;
+    min-width: 240px;
+    padding: 14px 22px;
+    background: var(--rf-cyan);
+    color: #071011;
+    border: 1px solid var(--rf-cyan);
+    font: 700 12px "IBM Plex Mono", monospace;
+    letter-spacing: .06em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s ease;
+  }
+
+  [data-component="26_ReflectionForm"] .submit-reflection-btn:hover,
+  [data-component="26_ReflectionForm"] .submit-reflection-btn:focus-visible {
+    background: #84eae6;
+    outline: 2px solid var(--rf-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="26_ReflectionForm"] .submit-reflection-btn:disabled,
+  [data-component="26_ReflectionForm"] .pdf-action-btn:disabled {
+    cursor: wait;
+    opacity: .55;
+  }
+
+  [data-component="26_ReflectionForm"] .pdf-action-btn {
+    padding: 14px 20px;
+    background: transparent;
+    color: var(--rf-amber);
+    border: 1px solid var(--rf-amber);
+    font: 700 12px "IBM Plex Mono", monospace;
+    cursor: pointer;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all .15s ease;
+  }
+
+  [data-component="26_ReflectionForm"] .pdf-action-btn:hover,
+  [data-component="26_ReflectionForm"] .pdf-action-btn:focus-visible {
+    background: rgba(240, 179, 91, 0.15);
+    outline: 2px solid var(--rf-cyan);
+    outline-offset: 2px;
+  }
+
+  [data-component="26_ReflectionForm"] .form-status-msg {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 3px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="26_ReflectionForm"] .form-status-msg.success {
+    background: rgba(104, 212, 208, 0.12);
+    border-left: 3px solid var(--rf-cyan);
+    color: #ffffff;
+  }
+
+  [data-component="26_ReflectionForm"] .form-status-msg.error {
+    background: rgba(226, 116, 104, 0.12);
+    border-left: 3px solid var(--color-coral-red);
+    color: #f7a8a0;
+  }
+
+  @media (max-width: 560px) {
+    [data-component="26_ReflectionForm"] .reflection-container {
+      padding: 22px 16px;
+    }
+
+    [data-component="26_ReflectionForm"] .question-heading {
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="26_ReflectionForm"] textarea,
+    [data-component="26_ReflectionForm"] .likert-box,
+    [data-component="26_ReflectionForm"] .submit-reflection-btn,
+    [data-component="26_ReflectionForm"] .pdf-action-btn {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="26_ReflectionForm"]');
+  if (!root) return;
+
+  var form = root.querySelector('#reflection-form');
+  var submitBtn = root.querySelector('#btn-submit-reflection');
+  var submitLabel = root.querySelector('#submit-reflection-label');
+  var pdfBtn = root.querySelector('#btn-reflection-pdf');
+  var loadingMsg = root.querySelector('[data-state="loading"]');
+  var successMsg = root.querySelector('[data-state="success"]');
+  var errorMsg = root.querySelector('[data-state="error"]');
+  var submitStatus = root.querySelector('#reflection-submit-status');
+  var questions = [
+    { name: 'q1', input: root.querySelector('#reflection-q1'), counter: root.querySelector('#reflection-q1-counter') },
+    { name: 'q2', input: root.querySelector('#reflection-q2'), counter: root.querySelector('#reflection-q2-counter') },
+    { name: 'q3', input: root.querySelector('#reflection-q3'), counter: root.querySelector('#reflection-q3-counter') }
+  ];
+  var isSaving = false;
+  var hasChanges = true;
+  var validationAttempted = false;
+  var saveSerial = 0;
+  var printTimer = null;
+  var defaultSubmitLabel = 'ENVIAR REFLEXÃO FORMATIVA';
+
+  function displayText(value, fallback) {
+    if (typeof value === 'string') {
+      var trimmed = value.trim();
+      return trimmed || fallback;
+    }
+    if (typeof value === 'number' && isFinite(value)) return String(value);
+    return fallback;
+  }
+
+  function restoreSessionState() {
+    if (window.currentUserId && window.currentSessionToken) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.token || !saved.user || !saved.user.id) return window.currentUserId ? String(window.currentUserId) : '';
+      window.currentSessionToken = String(saved.token);
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (ignored) {
+      return window.currentUserId ? String(window.currentUserId) : '';
+    }
+  }
+
+  function clearMessages() {
+    if (loadingMsg) loadingMsg.hidden = true;
+    if (successMsg) successMsg.hidden = true;
+    if (errorMsg) errorMsg.hidden = true;
+    if (submitStatus) submitStatus.textContent = '';
+  }
+
+  function showError(message) {
+    if (successMsg) successMsg.hidden = true;
+    if (submitStatus) submitStatus.textContent = message;
+    if (errorMsg) {
+      errorMsg.textContent = message;
+      errorMsg.hidden = false;
+      errorMsg.focus();
+    }
+  }
+
+  function showSuccess(message) {
+    if (errorMsg) errorMsg.hidden = true;
+    if (submitStatus) submitStatus.textContent = message;
+    if (successMsg) {
+      successMsg.textContent = message;
+      successMsg.hidden = false;
+      successMsg.focus();
+    }
+  }
+
+  function updateCounters() {
+    questions.forEach(function(question) {
+      if (!question.input) return;
+      var length = question.input.value.length;
+      if (question.counter) question.counter.textContent = length + ' / 1000';
+      if (validationAttempted) question.input.setAttribute('aria-invalid', question.input.value.trim() ? 'false' : 'true');
+    });
+    validateForm();
+  }
+
+  function getLikertInput() {
+    return form ? form.querySelector('input[name="likert-security"]:checked') : null;
+  }
+
+  function isValid() {
+    var questionsComplete = questions.every(function(question) {
+      return question.input && question.input.value.trim().length > 0;
+    });
+    var likert = getLikertInput();
+    var score = likert ? Number(likert.value) : NaN;
+    return questionsComplete && isFinite(score) && score >= 1 && score <= 5;
+  }
+
+  function validateForm() {
+    var valid = isValid();
+    if (submitBtn) {
+      submitBtn.disabled = isSaving || !valid || !hasChanges;
+      submitBtn.setAttribute('aria-disabled', submitBtn.disabled ? 'true' : 'false');
+    }
+    return valid;
+  }
+
+  function setBusy(busy) {
+    isSaving = Boolean(busy);
+    root.setAttribute('aria-busy', isSaving ? 'true' : 'false');
+    if (submitLabel) submitLabel.textContent = isSaving ? 'REGISTRANDO REFLEXÃO...' : defaultSubmitLabel;
+    if (submitBtn) submitBtn.setAttribute('aria-busy', isSaving ? 'true' : 'false');
+    if (pdfBtn) pdfBtn.disabled = isSaving;
+    if (loadingMsg) loadingMsg.hidden = !isSaving;
+    questions.forEach(function(question) {
+      if (question.input) question.input.disabled = isSaving;
+    });
+    if (form) {
+      form.querySelectorAll('input[name="likert-security"]').forEach(function(input) {
+        input.disabled = isSaving;
+      });
+    }
+    validateForm();
+  }
+
+  function getSaveErrorMessage(response) {
+    var code = response && response.error && response.error.code;
+    if (code === 'INVALID_PLAYER') return 'Sua sessão expirou. Entre novamente para registrar a reflexão.';
+    return 'Não foi possível salvar a reflexão. Tente novamente.';
+  }
+
+  function buildPayload() {
+    var q1 = questions[0].input ? questions[0].input.value.trim() : '';
+    var q2 = questions[1].input ? questions[1].input.value.trim() : '';
+    var q3 = questions[2].input ? questions[2].input.value.trim() : '';
+    var likertInput = getLikertInput();
+    var likert = likertInput ? Number(likertInput.value) : 3;
+    return {
+      challenge: q1,
+      revisedChoice: q2,
+      dataPerception: q3,
+      securityScore: likert,
+      text: '1. Desafio na apuração:\n' + q1 + '\n\n2. Decisão refeita:\n' + q2 + '\n\n3. Percepção de dados:\n' + q3 + '\n\n4. Segurança na decisão (1 a 5): ' + likert
+    };
+  }
+
+  function getPrintDate(date) {
+    try {
+      return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+    } catch (ignored) {
+      return date.toLocaleString('pt-BR');
+    }
+  }
+
+  function resetPrintButton() {
+    if (printTimer) {
+      clearTimeout(printTimer);
+      printTimer = null;
+    }
+    if (pdfBtn) pdfBtn.disabled = false;
+  }
+
+  if (pdfBtn) {
+    pdfBtn.addEventListener('click', function() {
+      if (printTimer) return;
+      var now = new Date();
+      var date = getPrintDate(now);
+      var validationHash = 'RF-' + now.getTime().toString(36).toUpperCase();
+      window.dispatchEvent(new CustomEvent('dossier:download-pdf', {
+        detail: { date: date, validationHash: validationHash, includesReflection: true }
+      }));
+      pdfBtn.disabled = true;
+      printTimer = setTimeout(function() {
+        window.print();
+        resetPrintButton();
+      }, 150);
+    });
+  }
+  window.addEventListener('afterprint', resetPrintButton);
+
+  questions.forEach(function(question) {
+    if (!question.input) return;
+    question.input.addEventListener('input', function() {
+      hasChanges = true;
+      clearMessages();
+      updateCounters();
+    });
+  });
+  if (form) {
+    form.querySelectorAll('input[name="likert-security"]').forEach(function(input) {
+      input.addEventListener('change', function() {
+        hasChanges = true;
+        clearMessages();
+        validateForm();
+      });
+    });
+
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+      if (isSaving) return;
+      validationAttempted = true;
+      updateCounters();
+
+      if (!isValid()) {
+        showError('Responda às três perguntas e selecione um nível de segurança antes de enviar.');
+        return;
+      }
+
+      var playerId = restoreSessionState();
+      if (!playerId) {
+        showError('Sua sessão não está ativa. Entre novamente para registrar a reflexão.');
+        return;
+      }
+
+      clearMessages();
+      setBusy(true);
+      var payload = buildPayload();
+      var requestId = ++saveSerial;
+
+      function handleSuccess(response) {
+        if (requestId !== saveSerial) return;
+        setBusy(false);
+        if (!response || !response.ok) {
+          showError(getSaveErrorMessage(response));
+          return;
+        }
+        hasChanges = false;
+        validateForm();
+        showSuccess('✓ Reflexão formativa registrada com sucesso! Dossiê pronto para arquivamento.');
+        window.dispatchEvent(new CustomEvent('reflection:saved', {
+          detail: {
+            challenge: payload.challenge,
+            revisedChoice: payload.revisedChoice,
+            dataPerception: payload.dataPerception,
+            securityScore: payload.securityScore
+          }
+        }));
+      }
+
+      function handleFailure() {
+        if (requestId !== saveSerial) return;
+        setBusy(false);
+        showError('Falha de comunicação com o servidor. Tente novamente.');
+      }
+
+      if (window.google && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(handleSuccess)
+          .withFailureHandler(handleFailure)
+          .saveReflection(window.currentSessionToken || playerId, payload);
+      } else {
+        handleFailure();
+      }
+    });
+  }
+
+  updateCounters();
+}());
+</script>

@@ -1,0 +1,1098 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 25_ImpactReport.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Relatório de impacto com métricas e devolutiva acessíveis
+
+  PRINCIPAIS FUNCIONALIDADES
+  Relatório de impacto.
+
+  INTEGRAÇÕES
+  Exibe avaliação narrativa e pedagógica com linguagem formativa.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva: indicadores auxiliares, rubrica formativa explicável,
+  devolutiva pedagógica e impressão do dossiê. A leitura final depende de revisão docente;
+  os indicadores não são nota automática.
+-->
+<section data-component="25_ImpactReport" aria-labelledby="impact-report-title" aria-describedby="impact-report-description" aria-busy="true">
+  <div class="impact-container">
+    <header class="impact-header">
+      <span class="impact-badge">[ ENCERRAMENTO // AVALIAÇÃO DE DESEMPENHO ]</span>
+      <h2 id="impact-report-title">Relatório de Impacto Investigativo</h2>
+      <p id="impact-report-description" class="impact-lead">Análise formativa das competências desenvolvidas ao longo da apuração e tomadas de decisão.</p>
+      <p id="impact-choice-count" class="impact-choice-count" hidden role="status" aria-live="polite" aria-atomic="true"></p>
+    </header>
+
+    <p data-state="loading" id="impact-loading" class="impact-state-msg" role="status" aria-live="polite" aria-atomic="true">Processando métricas e gerando devolutiva formativa…</p>
+    <p data-state="empty" id="impact-empty" class="impact-state-msg" hidden role="status" aria-live="polite" aria-atomic="true">Ainda não há decisões registradas para gerar uma devolutiva.</p>
+    <p data-state="error" id="impact-status" class="impact-state-msg error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível carregar o relatório de impacto.</p>
+    <button type="button" id="impact-retry" class="impact-retry" hidden>TENTAR NOVAMENTE</button>
+
+    <div id="impact-content" data-slot="content" hidden aria-live="polite">
+      <!-- 1. Indicadores técnicos: compatibilidade histórica, não são nota -->
+      <div class="meters-card">
+        <h3 class="card-subtitle">Indicadores auxiliares <span class="not-a-grade">(não são nota)</span></h3>
+        <p class="evaluation-note">Esses números ajudam a acompanhar o percurso do caso. A avaliação formativa observa perguntas, fontes, incertezas, justificativas e revisão — nunca a velocidade.</p>
+        
+        <div class="meters-grid">
+          <!-- Medidor 1: Rigor Metodológico -->
+          <div class="meter-item">
+            <div class="meter-meta">
+              <span class="meter-name">Rigor Metodológico</span>
+              <strong class="meter-val" id="val-methodological">0%</strong>
+            </div>
+            <div class="meter-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="desc-methodological" id="prog-methodological" aria-label="Rigor Metodológico">
+              <div class="meter-fill fill-cyan" style="width: 0%;"></div>
+            </div>
+            <p class="meter-desc" id="desc-methodological">Checagem cruzada e validação documental de fontes.</p>
+          </div>
+
+          <!-- Medidor 2: Sensibilidade Ética -->
+          <div class="meter-item">
+            <div class="meter-meta">
+              <span class="meter-name">Sensibilidade Ética</span>
+              <strong class="meter-val" id="val-ethical">0%</strong>
+            </div>
+            <div class="meter-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="desc-ethical" id="prog-ethical" aria-label="Sensibilidade Ética">
+              <div class="meter-fill fill-amber" style="width: 0%;"></div>
+            </div>
+            <p class="meter-desc" id="desc-ethical">Resguardo do interesse público, contraditório e proteção de dados.</p>
+          </div>
+
+          <!-- Medidor 3: tempo contextual, sem valor de nota -->
+          <div class="meter-item">
+            <div class="meter-meta">
+              <span class="meter-name">Tempo de percurso (contexto)</span>
+              <strong class="meter-val" id="val-speed">0%</strong>
+            </div>
+            <div class="meter-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="desc-speed" id="prog-speed" aria-label="Tempo de percurso, não é pontuação">
+              <div class="meter-fill fill-blue" style="width: 0%;"></div>
+            </div>
+            <p class="meter-desc" id="desc-speed">Registro descritivo do tempo; não aumenta nem reduz a avaliação.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Rubrica formativa explicável -->
+      <div class="rubric-card">
+        <div class="feedback-header">
+          <span class="feedback-tag">[ CRITÉRIOS TRANSPARENTES // REVISÃO HUMANA ]</span>
+          <h3>Rubrica formativa — método e revisão</h3>
+        </div>
+        <p class="rubric-intro" id="rubric-intro">Os itens abaixo mostram indícios do percurso. A confirmação e a devolutiva final são feitas pelo professor, com espaço para texto, áudio ou mediação.</p>
+        <ul id="formative-rubric-list" class="formative-rubric-list"></ul>
+      </div>
+
+      <!-- 3. Devolutiva Formativa Personalizada -->
+      <div class="feedback-card">
+        <div class="feedback-header">
+          <span class="feedback-tag">[ SÍNTESE PEDAGÓGICA ]</span>
+          <h3>Devolutiva Formativa Personalizada</h3>
+        </div>
+        
+        <p class="feedback-summary" id="feedback-summary"></p>
+
+        <div class="feedback-sections">
+          <!-- Pontos Fortes -->
+          <div class="feedback-block strengths-block">
+            <h4><span aria-hidden="true">✓</span> Pontos Fortes Observados</h4>
+            <ul id="feedback-strengths-list"></ul>
+          </div>
+
+          <!-- Pontos a Aprimorar -->
+          <div class="feedback-block improvements-block">
+            <h4><span aria-hidden="true">⚡</span> Oportunidades de Aprimoramento</h4>
+            <ul id="feedback-improvements-list"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Seção Expansível do Formulário de Reflexão -->
+      <div class="reflection-section">
+        <button type="button" class="reflection-toggle" id="btn-toggle-reflection" aria-expanded="false" aria-controls="reflection-form-container">
+          <span class="toggle-icon" aria-hidden="true">▶</span>
+          <span class="toggle-text">Adicionar Reflexão Formativa ao Dossiê</span>
+          <span class="toggle-hint">(Opcional, mas recomendado para avaliação completa)</span>
+        </button>
+        <p id="reflection-load-status" class="reflection-load-status" hidden role="status" aria-live="polite" aria-atomic="true"></p>
+        
+        <div id="reflection-form-container" class="reflection-form-wrapper" hidden>
+          <!-- Inclusão do componente 26_ReflectionForm.html -->
+          <div id="reflection-form-slot"></div>
+        </div>
+      </div>
+
+      <!-- 5. Botão Baixar Dossiê Completo em PDF -->
+      <div class="dossier-download-bar">
+        <button type="button" class="btn-download-pdf" id="btn-download-dossier" disabled aria-describedby="download-hint">
+          <span aria-hidden="true">📄</span> Baixar Dossiê Completo em PDF
+        </button>
+        <span class="download-hint" id="download-hint">Exporta o dossiê final compilado (reportagem, evidências e devolutiva) para arquivamento ou envio ao professor.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="25_ImpactReport"] {
+    --ir-bg: var(--color-deep-shadow);
+    --ir-panel: var(--color-dark-graphite);
+    --ir-card: #111719;
+    --ir-line: #293539;
+    --ir-cyan: var(--color-neon-cyan);
+    --ir-amber: var(--color-warning-amber);
+    --ir-blue: #5ba3f0;
+    --ir-ink: var(--color-light-gray);
+    --ir-muted: var(--color-medium-gray);
+    padding: 24px;
+    color: var(--ir-ink);
+    background: var(--ir-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="25_ImpactReport"] .impact-container {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  [data-component="25_ImpactReport"] .impact-header {
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--ir-line);
+    padding-bottom: 16px;
+  }
+
+  [data-component="25_ImpactReport"] .impact-badge {
+    color: var(--ir-cyan);
+    font-size: 10px;
+    letter-spacing: .14em;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  [data-component="25_ImpactReport"] h2 {
+    margin: 4px 0 8px;
+    font: 700 clamp(24px, 4vw, 30px) Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="25_ImpactReport"] .impact-lead {
+    margin: 0;
+    color: var(--ir-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  [data-component="25_ImpactReport"] .impact-choice-count {
+    margin: 10px 0 0;
+    color: var(--ir-cyan);
+    font-size: 10px;
+    letter-spacing: .05em;
+  }
+
+  [data-component="25_ImpactReport"] .impact-state-msg {
+    padding: 14px 18px;
+    background: var(--ir-panel);
+    border-left: 3px solid var(--ir-cyan);
+    font-size: 12px;
+  }
+
+  [data-component="25_ImpactReport"] .impact-state-msg.error {
+    border-left-color: var(--color-coral-red);
+    color: #f7a8a0;
+  }
+
+  [data-component="25_ImpactReport"] .impact-retry {
+    margin: -4px 0 20px;
+    padding: 9px 12px;
+    border: 1px solid var(--ir-cyan);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ir-cyan);
+    font: 700 10px/1.2 "IBM Plex Mono", monospace;
+    letter-spacing: .08em;
+    cursor: pointer;
+  }
+
+  [data-component="25_ImpactReport"] .impact-retry:hover,
+  [data-component="25_ImpactReport"] .impact-retry:focus-visible {
+    background: var(--ir-cyan);
+    color: #071011;
+    outline: 2px solid var(--ir-amber);
+    outline-offset: 2px;
+  }
+
+  /* Cartão de Medidores */
+  [data-component="25_ImpactReport"] .meters-card {
+    background: var(--ir-panel);
+    border: 1px solid var(--ir-line);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  [data-component="25_ImpactReport"] .card-subtitle {
+    margin: 0 0 20px;
+    font: 700 16px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="25_ImpactReport"] .not-a-grade {
+    font: 400 11px "IBM Plex Mono", monospace;
+    color: var(--ir-amber);
+    letter-spacing: .04em;
+  }
+
+  [data-component="25_ImpactReport"] .evaluation-note,
+  [data-component="25_ImpactReport"] .rubric-intro {
+    margin: -8px 0 20px;
+    padding: 10px 12px;
+    border-left: 3px solid var(--ir-amber);
+    background: #101618;
+    color: var(--ir-muted);
+    font-size: 11px;
+    line-height: 1.55;
+  }
+
+  [data-component="25_ImpactReport"] .meters-grid {
+    display: grid;
+    gap: 20px;
+  }
+
+  [data-component="25_ImpactReport"] .meter-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+
+  [data-component="25_ImpactReport"] .meter-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: .04em;
+  }
+
+  [data-component="25_ImpactReport"] .meter-val {
+    font-size: 14px;
+    color: var(--ir-cyan);
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  [data-component="25_ImpactReport"] .meter-track {
+    height: 12px;
+    background: #0d1214;
+    border: 1px solid #232d30;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  [data-component="25_ImpactReport"] .meter-fill {
+    height: 100%;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    border-radius: 6px;
+  }
+
+  [data-component="25_ImpactReport"] .fill-cyan {
+    background: linear-gradient(90deg, #3aa3a0, var(--color-neon-cyan));
+    box-shadow: 0 0 10px rgba(104, 212, 208, 0.5);
+  }
+
+  [data-component="25_ImpactReport"] .fill-amber {
+    background: linear-gradient(90deg, #c78d38, var(--color-warning-amber));
+    box-shadow: 0 0 10px rgba(240, 179, 91, 0.5);
+  }
+
+  [data-component="25_ImpactReport"] .fill-blue {
+    background: linear-gradient(90deg, #3a74b0, #5ba3f0);
+    box-shadow: 0 0 10px rgba(91, 163, 240, 0.5);
+  }
+
+  [data-component="25_ImpactReport"] .meter-desc {
+    margin: 0;
+    font-size: 11px;
+    color: var(--ir-muted);
+  }
+
+  /* Rubrica formativa sem nota automática */
+  [data-component="25_ImpactReport"] .rubric-card {
+    background: var(--ir-panel);
+    border: 1px solid var(--ir-line);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  [data-component="25_ImpactReport"] .rubric-card h3 {
+    margin: 0 0 14px;
+    font: 700 18px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="25_ImpactReport"] .rubric-intro {
+    margin: 0 0 16px;
+    border-left-color: var(--ir-cyan);
+  }
+
+  [data-component="25_ImpactReport"] .formative-rubric-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 10px;
+  }
+
+  [data-component="25_ImpactReport"] .rubric-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 14px;
+    align-items: start;
+    padding: 12px;
+    background: var(--ir-card);
+    border: 1px solid var(--ir-line);
+    border-radius: 3px;
+  }
+
+  [data-component="25_ImpactReport"] .rubric-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  [data-component="25_ImpactReport"] .rubric-status {
+    font-size: 10px;
+    letter-spacing: .08em;
+    color: var(--ir-amber);
+    text-align: right;
+  }
+
+  [data-component="25_ImpactReport"] .rubric-evidence {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--ir-muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  [data-component="25_ImpactReport"] .rubric-review {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: #b9c7cc;
+    font-size: 10px;
+    font-style: italic;
+  }
+
+  /* Cartão de Devolutiva Formativa */
+  [data-component="25_ImpactReport"] .feedback-card {
+    background: var(--ir-panel);
+    border: 1px solid var(--ir-line);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  [data-component="25_ImpactReport"] .feedback-tag {
+    font-size: 9px;
+    letter-spacing: .12em;
+    color: var(--ir-amber);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  [data-component="25_ImpactReport"] .feedback-card h3 {
+    margin: 0 0 14px;
+    font: 700 18px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="25_ImpactReport"] .feedback-summary {
+    font: 14px/1.65 Georgia, serif;
+    color: #dbe2e4;
+    margin: 0 0 20px;
+    padding: 12px 16px;
+    background: #101618;
+    border-left: 3px solid var(--ir-cyan);
+    border-radius: 2px;
+  }
+
+  [data-component="25_ImpactReport"] .feedback-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  [data-component="25_ImpactReport"] .feedback-block {
+    background: var(--ir-card);
+    border: 1px solid var(--ir-line);
+    border-radius: 3px;
+    padding: 16px;
+  }
+
+  [data-component="25_ImpactReport"] .strengths-block {
+    border-top: 3px solid var(--ir-cyan);
+  }
+
+  [data-component="25_ImpactReport"] .improvements-block {
+    border-top: 3px solid var(--ir-amber);
+  }
+
+  [data-component="25_ImpactReport"] .feedback-block h4 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    color: #ffffff;
+    letter-spacing: .04em;
+  }
+
+  [data-component="25_ImpactReport"] .feedback-block ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #b9c7cc;
+  }
+
+  [data-component="25_ImpactReport"] .feedback-block li {
+    margin-bottom: 6px;
+  }
+
+  /* Seção Expansível de Reflexão */
+  [data-component="25_ImpactReport"] .reflection-section {
+    margin-bottom: 24px;
+    border: 1px solid var(--ir-line);
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--ir-panel);
+  }
+
+  [data-component="25_ImpactReport"] .reflection-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: transparent;
+    border: none;
+    color: var(--ir-cyan);
+    font: 700 13px "IBM Plex Mono", monospace;
+    text-align: left;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  [data-component="25_ImpactReport"] .reflection-toggle:hover {
+    background: rgba(104, 212, 208, 0.08);
+  }
+
+  [data-component="25_ImpactReport"] .reflection-toggle:focus-visible {
+    outline: 2px solid var(--ir-cyan);
+    outline-offset: -2px;
+  }
+
+  [data-component="25_ImpactReport"] .toggle-icon {
+    font-size: 10px;
+    transition: transform .2s ease;
+    display: inline-block;
+  }
+
+  [data-component="25_ImpactReport"] .reflection-toggle[aria-expanded="true"] .toggle-icon {
+    transform: rotate(90deg);
+  }
+
+  [data-component="25_ImpactReport"] .toggle-text {
+    flex: 1;
+  }
+
+  [data-component="25_ImpactReport"] .toggle-hint {
+    font-size: 10px;
+    color: var(--ir-muted);
+    font-weight: 400;
+  }
+
+  [data-component="25_ImpactReport"] .reflection-form-wrapper {
+    padding: 20px;
+    border-top: 1px solid var(--ir-line);
+    background: #0d1214;
+  }
+
+  [data-component="25_ImpactReport"] .reflection-load-status {
+    margin: 0;
+    padding: 10px 20px;
+    border-top: 1px solid var(--ir-line);
+    color: var(--ir-muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  /* Barra de Download em PDF */
+  [data-component="25_ImpactReport"] .dossier-download-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 24px;
+    background: #0f1618;
+    border: 1px dashed var(--ir-cyan);
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  [data-component="25_ImpactReport"] .btn-download-pdf {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: var(--ir-cyan);
+    color: #071011;
+    border: 1px solid var(--ir-cyan);
+    font: 700 13px "IBM Plex Mono", monospace;
+    letter-spacing: .06em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s ease;
+  }
+
+  [data-component="25_ImpactReport"] .btn-download-pdf:hover,
+  [data-component="25_ImpactReport"] .btn-download-pdf:focus-visible {
+    background: #84eae6;
+    box-shadow: 0 0 16px rgba(104, 212, 208, 0.5);
+    outline: 2px solid var(--ir-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="25_ImpactReport"] .btn-download-pdf:disabled {
+    cursor: wait;
+    opacity: .55;
+    box-shadow: none;
+  }
+
+  [data-component="25_ImpactReport"] .download-hint {
+    font-size: 11px;
+    color: var(--ir-muted);
+    max-width: 520px;
+    line-height: 1.45;
+  }
+
+  /* Estilos Específicos para Impressão / PDF */
+  @media print {
+    /* Oculta elementos não essenciais para o PDF */
+    body * { visibility: hidden; }
+    
+    /* Torna visível apenas o relatório de impacto */
+    [data-component="25_ImpactReport"], 
+    [data-component="25_ImpactReport"] *,
+    [data-component="26_ReflectionForm"],
+    [data-component="26_ReflectionForm"] * { 
+      visibility: visible; 
+    }
+    
+    /* Posiciona para impressão */
+    [data-component="25_ImpactReport"] { 
+      position: absolute; 
+      left: 0; 
+      top: 0; 
+      width: 100%; 
+      color: #000; 
+      background: #fff; 
+      padding: 20mm;
+      font-size: 11pt;
+    }
+    
+    /* Remove elementos interativos */
+    [data-component="25_ImpactReport"] .btn-download-pdf,
+    [data-component="25_ImpactReport"] .download-hint,
+    [data-component="25_ImpactReport"] .dossier-download-bar,
+    [data-component="25_ImpactReport"] .impact-state-msg,
+    [data-component="25_ImpactReport"] .impact-retry,
+    [data-component="25_ImpactReport"] .reflection-load-status,
+    [data-component="25_ImpactReport"] .reflection-toggle,
+    [data-component="26_ReflectionForm"] .submit-reflection-btn,
+    [data-component="26_ReflectionForm"] .pdf-action-btn,
+    [data-component="26_ReflectionForm"] .reflection-actions,
+    [data-component="26_ReflectionForm"] .form-status-msg,
+    nav, header.main-header, aside, footer { 
+      display: none !important; 
+    }
+    
+    /* Força exibição da reflexão se foi preenchida */
+    [data-component="25_ImpactReport"] .reflection-form-wrapper {
+      display: block !important;
+      visibility: visible !important;
+      border: none;
+      background: #fff;
+    }
+    
+    /* Estiliza cartões para impressão */
+    [data-component="25_ImpactReport"] .meters-card,
+    [data-component="25_ImpactReport"] .rubric-card,
+    [data-component="25_ImpactReport"] .feedback-card { 
+      border: 2px solid #333; 
+      background: #fff; 
+      color: #000; 
+      box-shadow: none;
+      page-break-inside: avoid;
+      margin-bottom: 15mm;
+    }
+    
+    /* Ajusta barras de progresso */
+    [data-component="25_ImpactReport"] .meter-track {
+      border: 1px solid #666;
+      background: #f5f5f5;
+    }
+    
+    [data-component="25_ImpactReport"] .meter-fill {
+      opacity: 0.85;
+    }
+    
+    /* Formata títulos */
+    [data-component="25_ImpactReport"] h2 {
+      color: #000;
+      border-bottom: 3px solid #333;
+      padding-bottom: 8pt;
+      margin-bottom: 12pt;
+    }
+    
+    [data-component="25_ImpactReport"] h3,
+    [data-component="26_ReflectionForm"] h2 {
+      color: #000;
+      border-bottom: 1px solid #666;
+      padding-bottom: 6pt;
+    }
+    
+    /* Adiciona carimbo de autenticidade no rodapé */
+    [data-component="25_ImpactReport"]::after {
+      content: "DOSSIÊ OFICIAL - O TERMINAL: SOMBRAS DO CAPITAL | Documento Gerado em: " attr(data-print-date) " | Validação Digital: " attr(data-validation-hash);
+      display: block;
+      position: fixed;
+      bottom: 10mm;
+      left: 20mm;
+      right: 20mm;
+      padding-top: 8pt;
+      border-top: 1px solid #999;
+      font-size: 8pt;
+      color: #666;
+      text-align: center;
+    }
+    
+    /* Força cores de alta densidade */
+    [data-component="25_ImpactReport"] * {
+      color: #000 !important;
+      background: #fff !important;
+    }
+    
+    [data-component="25_ImpactReport"] .meter-fill.fill-cyan {
+      background: #3aa3a0 !important;
+    }
+    
+    [data-component="25_ImpactReport"] .meter-fill.fill-amber {
+      background: #c78d38 !important;
+    }
+    
+    [data-component="25_ImpactReport"] .meter-fill.fill-blue {
+      background: #3a74b0 !important;
+    }
+    
+    /* Estiliza reflexões para impressão */
+    [data-component="26_ReflectionForm"] textarea,
+    [data-component="26_ReflectionForm"] .likert-box {
+      border: 1px solid #999 !important;
+      background: #fafafa !important;
+    }
+    
+    [data-component="26_ReflectionForm"] .likert-option input:checked + .likert-box {
+      border: 2px solid #000 !important;
+      background: #e0e0e0 !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="25_ImpactReport"] .meter-fill,
+    [data-component="25_ImpactReport"] .reflection-toggle,
+    [data-component="25_ImpactReport"] .btn-download-pdf {
+      transition: none;
+    }
+
+    [data-component="25_ImpactReport"] .toggle-icon {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="25_ImpactReport"]');
+  if (!root) return;
+
+  var loading = root.querySelector('[data-state="loading"]');
+  var empty = root.querySelector('[data-state="empty"]');
+  var error = root.querySelector('[data-state="error"]');
+  var retry = root.querySelector('#impact-retry');
+  var content = root.querySelector('#impact-content');
+  var choiceCountEl = root.querySelector('#impact-choice-count');
+
+  var valMethodological = root.querySelector('#val-methodological');
+  var progMethodological = root.querySelector('#prog-methodological');
+  var fillMethodological = root.querySelector('#prog-methodological .meter-fill');
+  var valEthical = root.querySelector('#val-ethical');
+  var progEthical = root.querySelector('#prog-ethical');
+  var fillEthical = root.querySelector('#prog-ethical .meter-fill');
+  var valSpeed = root.querySelector('#val-speed');
+  var progSpeed = root.querySelector('#prog-speed');
+  var fillSpeed = root.querySelector('#prog-speed .meter-fill');
+
+  var summaryEl = root.querySelector('#feedback-summary');
+  var strengthsList = root.querySelector('#feedback-strengths-list');
+  var improvementsList = root.querySelector('#feedback-improvements-list');
+  var rubricList = root.querySelector('#formative-rubric-list');
+  var rubricIntro = root.querySelector('#rubric-intro');
+  var btnDownload = root.querySelector('#btn-download-dossier');
+  var btnToggleReflection = root.querySelector('#btn-toggle-reflection');
+  var reflectionContainer = root.querySelector('#reflection-form-container');
+  var reflectionSlot = root.querySelector('#reflection-form-slot');
+  var reflectionLoadStatus = root.querySelector('#reflection-load-status');
+  var loadSerial = 0;
+  var reflectionLoading = false;
+  var printTimer = null;
+
+  function displayText(value, fallback) {
+    if (typeof value === 'string') {
+      var trimmed = value.trim();
+      return trimmed || fallback;
+    }
+    if (typeof value === 'number' && isFinite(value)) return String(value);
+    return fallback;
+  }
+
+  function metricValue(value) {
+    if (value === null || value === undefined || value === '') return null;
+    var number = Number(value);
+    if (!isFinite(number)) return null;
+    return Math.max(0, Math.min(100, Math.round(number)));
+  }
+
+  function setBusy(isBusy) {
+    root.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    if (loading) loading.hidden = !isBusy;
+    if (retry && isBusy) retry.hidden = true;
+    if (btnDownload) btnDownload.disabled = isBusy;
+  }
+
+  function showError(message) {
+    setBusy(false);
+    if (btnDownload) btnDownload.disabled = true;
+    if (content) content.hidden = true;
+    if (empty) empty.hidden = true;
+    if (error) {
+      error.textContent = message;
+      error.hidden = false;
+      error.focus();
+    }
+    if (retry) retry.hidden = false;
+  }
+
+  function restoreSessionState() {
+    if (window.currentUserId && window.currentSessionToken) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.token || !saved.user || !saved.user.id) return window.currentUserId ? String(window.currentUserId) : '';
+      window.currentSessionToken = String(saved.token);
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (ignored) {
+      return window.currentUserId ? String(window.currentUserId) : '';
+    }
+  }
+
+  function responseErrorMessage(response) {
+    var code = response && response.error && response.error.code;
+    if (code === 'INVALID_PLAYER' || code === 'AUTH_REQUIRED' || code === 'UNAUTHENTICATED') return 'Sua sessão não está ativa. Entre novamente para consultar a devolutiva.';
+    return 'Não foi possível carregar o relatório de impacto. Tente novamente.';
+  }
+
+  function updateMeter(value, valueEl, progressEl, fillEl) {
+    var metric = metricValue(value);
+    if (valueEl) valueEl.textContent = metric === null ? '—' : metric + '%';
+    if (progressEl) {
+      progressEl.setAttribute('aria-valuenow', metric === null ? '0' : String(metric));
+      progressEl.setAttribute('aria-valuetext', metric === null ? 'Dado não disponível' : metric + '%');
+    }
+    if (fillEl) fillEl.style.width = metric === null ? '0%' : metric + '%';
+  }
+
+  function appendListItems(list, values, fallback) {
+    if (!list) return;
+    list.textContent = '';
+    var items = Array.isArray(values) ? values : [];
+    if (!items.length) items = [fallback];
+    items.forEach(function(value) {
+      var li = document.createElement('li');
+      li.textContent = displayText(value, fallback);
+      list.appendChild(li);
+    });
+  }
+
+  function renderRubric(report) {
+    if (!rubricList) return;
+    rubricList.textContent = '';
+    var rubric = Array.isArray(report.rubric) ? report.rubric : [];
+    var statusLabels = {
+      recorded: 'INDÍCIO REGISTRADO',
+      not_observed: 'AINDA NÃO OBSERVADO',
+      not_available: 'DADO NÃO DISPONÍVEL'
+    };
+    if (!rubric.length) {
+      var emptyRubric = document.createElement('li');
+      emptyRubric.className = 'rubric-item';
+      emptyRubric.textContent = 'A rubrica ainda não recebeu dados para esta sessão.';
+      rubricList.appendChild(emptyRubric);
+      return;
+    }
+
+    rubric.forEach(function(item, index) {
+      if (!item || typeof item !== 'object') return;
+      var labelText = displayText(item.label, 'Critério sem nome');
+      var row = document.createElement('li');
+      row.className = 'rubric-item';
+      row.setAttribute('aria-posinset', String(index + 1));
+      row.setAttribute('aria-setsize', String(rubric.length));
+
+      var label = document.createElement('span');
+      label.className = 'rubric-label';
+      label.textContent = labelText;
+      row.appendChild(label);
+
+      var status = document.createElement('span');
+      status.className = 'rubric-status';
+      status.textContent = statusLabels[item.status] || 'REVISÃO DOCENTE NECESSÁRIA';
+      row.appendChild(status);
+
+      var evidence = document.createElement('p');
+      evidence.className = 'rubric-evidence';
+      evidence.textContent = displayText(item.evidence, 'Sem evidência textual registrada.');
+      row.appendChild(evidence);
+
+      var review = document.createElement('p');
+      review.className = 'rubric-review';
+      review.textContent = item.reviewRequired === false ? 'Revisão docente não sinalizada neste item.' : 'Revisar com o professor — este indício não é aprovação automática.';
+      row.appendChild(review);
+      rubricList.appendChild(row);
+    });
+  }
+
+  function renderReport(report) {
+    if (!report || typeof report !== 'object') {
+      showError('O servidor devolveu um formato de relatório inválido.');
+      return;
+    }
+
+    updateMeter(report.methodologicalRigor, valMethodological, progMethodological, fillMethodological);
+    updateMeter(report.ethicalSensitivity, valEthical, progEthical, fillEthical);
+    updateMeter(report.responseSpeed, valSpeed, progSpeed, fillSpeed);
+
+    var choicesCount = Number(report.choicesCount);
+    choicesCount = isFinite(choicesCount) && choicesCount >= 0 ? Math.floor(choicesCount) : 0;
+    if (choiceCountEl) {
+      choiceCountEl.textContent = choicesCount ? choicesCount + ' decisão(ões) considerada(s) nesta devolutiva.' : 'Nenhuma decisão registrada nesta sessão; os indicadores aguardam evidências do percurso.';
+      choiceCountEl.hidden = false;
+    }
+    if (empty) empty.hidden = choicesCount !== 0;
+
+    renderRubric(report);
+    if (rubricIntro) {
+      var queueCount = Array.isArray(report.reviewQueue) ? report.reviewQueue.length : 0;
+      rubricIntro.textContent = displayText(report.evaluationNote, 'A rubrica registra indícios para revisão docente; não é uma nota automática e não usa velocidade como critério.') + ' A confirmação e a devolutiva final são feitas pelo professor, com espaço para texto, áudio ou mediação. Fila de revisão docente: ' + queueCount + ' item(ns).';
+    }
+
+    if (summaryEl) summaryEl.textContent = displayText(report.summary, 'Ainda não há devolutiva confirmada para esta sessão.');
+    appendListItems(strengthsList, report.strengths, 'Nenhum ponto forte foi registrado ainda.');
+    appendListItems(improvementsList, report.improvements, 'Nenhuma oportunidade foi registrada ainda.');
+
+    if (content) content.hidden = false;
+    setBusy(false);
+    if (error) error.hidden = true;
+    if (retry) retry.hidden = true;
+  }
+
+  function mountReflectionHtml(html) {
+    if (!reflectionSlot) return;
+    reflectionSlot.textContent = '';
+    var range = document.createRange();
+    range.selectNode(reflectionSlot);
+    var fragment = range.createContextualFragment(String(html));
+    reflectionSlot.appendChild(fragment);
+    reflectionSlot.dataset.loaded = 'true';
+
+    var scripts = reflectionSlot.querySelectorAll('script');
+    scripts.forEach(function(oldScript) {
+      var newScript = document.createElement('script');
+      newScript.textContent = oldScript.textContent;
+      oldScript.parentNode.replaceChild(newScript, oldScript);
+    });
+  }
+
+  function setReflectionStatus(message, hidden) {
+    if (!reflectionLoadStatus) return;
+    reflectionLoadStatus.textContent = message || '';
+    reflectionLoadStatus.hidden = Boolean(hidden);
+  }
+
+  function loadReflectionForm() {
+    if (!reflectionSlot || reflectionSlot.dataset.loaded || reflectionLoading) return;
+    reflectionLoading = true;
+    if (btnToggleReflection) btnToggleReflection.setAttribute('aria-busy', 'true');
+    setReflectionStatus('Carregando formulário de reflexão…', false);
+
+    function fail(message) {
+      reflectionLoading = false;
+      if (btnToggleReflection) btnToggleReflection.setAttribute('aria-busy', 'false');
+      setReflectionStatus(message, false);
+      if (reflectionSlot) {
+        reflectionSlot.textContent = '';
+        var notice = document.createElement('p');
+        notice.className = 'impact-state-msg error';
+        notice.textContent = message;
+        reflectionSlot.appendChild(notice);
+      }
+    }
+
+    if (window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(html) {
+          if (!html) {
+            fail('O formulário de reflexão não retornou conteúdo.');
+            return;
+          }
+          mountReflectionHtml(html);
+          reflectionLoading = false;
+          if (btnToggleReflection) btnToggleReflection.setAttribute('aria-busy', 'false');
+          setReflectionStatus('Formulário de reflexão carregado.', false);
+        })
+        .withFailureHandler(function() {
+          fail('Não foi possível carregar o formulário de reflexão.');
+        })
+        .include('26_ReflectionForm');
+    } else {
+      fail('Servidor indisponível. O formulário de reflexão não foi carregado.');
+    }
+  }
+
+  if (btnToggleReflection && reflectionContainer) {
+    btnToggleReflection.addEventListener('click', function() {
+      var expanded = btnToggleReflection.getAttribute('aria-expanded') === 'true';
+      reflectionContainer.hidden = expanded;
+      btnToggleReflection.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      if (!expanded) loadReflectionForm();
+    });
+  }
+
+  function getPrintDate(date) {
+    try {
+      return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+    } catch (ignored) {
+      return date.toLocaleString('pt-BR');
+    }
+  }
+
+  function resetDownloadButton() {
+    if (printTimer) {
+      clearTimeout(printTimer);
+      printTimer = null;
+    }
+    if (btnDownload) btnDownload.disabled = false;
+  }
+
+  if (btnDownload) {
+    btnDownload.addEventListener('click', function() {
+      if (printTimer) return;
+      var now = new Date();
+      var dateStr = getPrintDate(now);
+      var validationHash = 'IR-' + now.getTime().toString(36).toUpperCase();
+      root.setAttribute('data-print-date', dateStr);
+      root.setAttribute('data-validation-hash', validationHash);
+
+      var reflectionInputs = root.querySelectorAll('[data-component="26_ReflectionForm"] textarea');
+      var hasReflection = false;
+      reflectionInputs.forEach(function(input) {
+        if (input && input.value && input.value.trim()) hasReflection = true;
+      });
+      if (hasReflection && reflectionContainer) reflectionContainer.hidden = false;
+
+      window.dispatchEvent(new CustomEvent('dossier:download-pdf', {
+        detail: { date: dateStr, validationHash: validationHash, includesReflection: hasReflection }
+      }));
+      btnDownload.disabled = true;
+      printTimer = setTimeout(function() {
+        window.print();
+        resetDownloadButton();
+      }, 150);
+    });
+  }
+  window.addEventListener('afterprint', resetDownloadButton);
+
+  function load() {
+    var currentLoad = ++loadSerial;
+    setBusy(true);
+    if (content) content.hidden = true;
+    if (error) error.hidden = true;
+    if (empty) empty.hidden = true;
+    if (choiceCountEl) choiceCountEl.hidden = true;
+
+    var userId = restoreSessionState();
+    if (!userId) {
+      showError('Sua sessão não está ativa. Entre novamente para consultar a devolutiva.');
+      return;
+    }
+    if (!window.google || !google.script || !google.script.run) {
+      showError('Servidor indisponível. Tente novamente quando a conexão estiver pronta.');
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (currentLoad !== loadSerial) return;
+        if (!response || !response.ok) {
+          showError(responseErrorMessage(response));
+          return;
+        }
+        renderReport(response.data);
+      })
+      .withFailureHandler(function() {
+        if (currentLoad !== loadSerial) return;
+        showError('Falha de comunicação com o servidor. Tente novamente.');
+      })
+      .getImpactReport(window.currentSessionToken || userId);
+  }
+
+  if (retry) retry.addEventListener('click', load);
+  load();
+}());
+</script>

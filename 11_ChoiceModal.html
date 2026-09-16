@@ -1,0 +1,729 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 11_ChoiceModal.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Modal de escolha implementado
+
+  PRINCIPAIS FUNCIONALIDADES
+  Modal de escolha.
+
+  INTEGRAÇÕES
+  Exibe alternativas, prazo e confirmação sem submeter duas vezes.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Implementação produtiva com confirmação em dois estágios, previsão de impacto,
+  alerta visual neon (<30s), spinner de submissão e desdobramento narrativo sem reload.
+  Validado conforme o Prompt 56 do prompts.md.
+-->
+<?!= HtmlService.createHtmlOutputFromFile('00_GlobalStyles').getContent(); ?>
+
+<style>
+  [data-component="11_ChoiceModal"] .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  
+  [data-component="11_ChoiceModal"] {
+    --modal-bg: rgba(7, 10, 11, 0.96);
+    --modal-panel: var(--color-dark-graphite);
+    --modal-cyan: var(--color-neon-cyan);
+    --modal-amber: var(--color-warning-amber);
+    --modal-red: var(--color-coral-red);
+    --modal-line: var(--color-slate-gray);
+    --modal-ink: var(--color-light-gray);
+    --modal-muted: var(--color-medium-gray);
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    color: var(--modal-ink);
+    background: var(--modal-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="11_ChoiceModal"] .choice {
+    width: min(100%, 640px);
+    padding: 32px 28px;
+    border: 1px solid var(--modal-amber);
+    background: var(--modal-panel);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(240, 179, 91, 0.15);
+    border-radius: 4px;
+    box-sizing: border-box;
+    position: relative;
+    transition: border-color .3s ease, box-shadow .3s ease;
+  }
+
+  /* Alerta Crítico Visual: Menos de 30 segundos no temporizador (sem som invasivo) */
+  [data-component="11_ChoiceModal"] .choice.modal-urgent {
+    border-color: var(--modal-red) !important;
+    animation: pulse-urgent-modal 1.4s infinite ease-in-out;
+  }
+
+  @keyframes pulse-urgent-modal {
+    0%, 100% {
+      box-shadow: 0 0 10px rgba(226, 116, 104, 0.35), 0 16px 40px rgba(0, 0, 0, 0.8);
+    }
+    50% {
+      box-shadow: 0 0 24px rgba(226, 116, 104, 0.75), 0 16px 40px rgba(0, 0, 0, 0.8);
+    }
+  }
+
+  [data-component="11_ChoiceModal"] .meta-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  [data-component="11_ChoiceModal"] .meta-tag {
+    color: var(--modal-amber);
+    font-size: 10px;
+    letter-spacing: .14em;
+  }
+
+  [data-component="11_ChoiceModal"] .timer {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--modal-cyan);
+    font-size: 11px;
+    font-weight: 700;
+    background: #0e1315;
+    padding: 4px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--modal-line);
+    transition: color .25s ease, border-color .25s ease;
+  }
+
+  [data-component="11_ChoiceModal"] .timer.urgent {
+    color: var(--modal-red) !important;
+    border-color: var(--modal-red) !important;
+    box-shadow: 0 0 10px rgba(226, 116, 104, 0.4);
+  }
+
+  [data-component="11_ChoiceModal"] h2 {
+    margin: 8px 0 12px;
+    font: 700 clamp(20px, 4vw, 26px)/1.15 Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="11_ChoiceModal"] .content-nature-note {
+    margin: 0 0 14px;
+    padding: 9px 11px;
+    border-left: 3px solid var(--modal-amber);
+    background: rgba(240, 179, 91, .08);
+    color: #c3ced1;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  [data-component="11_ChoiceModal"] .content-nature-note strong {
+    color: var(--modal-amber);
+    letter-spacing: .06em;
+  }
+
+  [data-component="11_ChoiceModal"] .question {
+    color: #b9c3c5;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 20px;
+  }
+
+  [data-component="11_ChoiceModal"] fieldset {
+    display: grid;
+    gap: 14px;
+    margin: 20px 0;
+    padding: 0;
+    border: 0;
+  }
+
+  /* Alternativas de Escolha */
+  [data-component="11_ChoiceModal"] .choice-option {
+    border: 1px solid #354247;
+    background: #101618;
+    border-radius: 4px;
+    overflow: hidden;
+    transition: all .15s ease-out;
+  }
+
+  [data-component="11_ChoiceModal"] .choice-option:has(input:checked) {
+    border-color: var(--modal-cyan);
+    background: #141f23;
+  }
+
+  [data-component="11_ChoiceModal"] .choice-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    color: #d5dddf;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1.5;
+  }
+
+  [data-component="11_ChoiceModal"] input[type="radio"] {
+    margin-top: 3px;
+    accent-color: var(--modal-cyan);
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  /* Painel de Previsão de Impacto */
+  [data-component="11_ChoiceModal"] .impact-preview {
+    margin: 0 16px 14px 44px;
+    padding: 10px 14px;
+    background: #0d1214;
+    border-left: 3px solid var(--modal-cyan);
+    border-radius: 2px;
+    font-size: 11px;
+    animation: impact-slide-in .2s ease-out;
+  }
+
+  [data-component="11_ChoiceModal"] .impact-preview.impact-speed {
+    border-left-color: var(--modal-amber);
+  }
+
+  @keyframes impact-slide-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  [data-component="11_ChoiceModal"] .impact-badge {
+    display: block;
+    font-size: 9px;
+    letter-spacing: .12em;
+    color: var(--modal-muted);
+    margin-bottom: 3px;
+  }
+
+  [data-component="11_ChoiceModal"] .impact-preview strong {
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  [data-component="11_ChoiceModal"] .impact-preview p {
+    margin: 4px 0 0;
+    color: #8fa0a6;
+    line-height: 1.4;
+  }
+
+  /* Botão de Confirmação com Pulsação Ciano */
+  [data-component="11_ChoiceModal"] .confirm-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border: 1px solid var(--modal-line);
+    color: var(--modal-muted);
+    background: var(--color-charcoal);
+    font: 700 12px/1 "IBM Plex Mono", "Courier New", monospace;
+    letter-spacing: .06em;
+    cursor: not-allowed;
+    border-radius: 3px;
+    transition: all .2s ease;
+  }
+
+  [data-component="11_ChoiceModal"] .confirm-btn.btn-ready {
+    border-color: var(--modal-cyan);
+    color: #071011;
+    background: var(--modal-cyan);
+    cursor: pointer;
+    animation: pulse-cyan-btn 1.8s infinite ease-in-out;
+  }
+
+  @keyframes pulse-cyan-btn {
+    0%, 100% {
+      box-shadow: 0 0 6px rgba(104, 212, 208, 0.35);
+      background: var(--color-neon-cyan);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(104, 212, 208, 0.75);
+      background: #84eae6;
+    }
+  }
+
+  [data-component="11_ChoiceModal"] .confirm-btn.btn-ready:hover,
+  [data-component="11_ChoiceModal"] .confirm-btn.btn-ready:focus-visible {
+    outline: 2px solid var(--modal-amber);
+    outline-offset: 2px;
+  }
+
+  /* Spinner Ciano */
+  [data-component="11_ChoiceModal"] .spinner-cyan {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(7, 16, 17, 0.3);
+    border-top-color: #071011;
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+    display: inline-block;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Desdobramento Narrativo sem Recarregar a Tela */
+  [data-component="11_ChoiceModal"] .consequence-card {
+    background: #0f1517;
+    border: 1px solid var(--modal-line);
+    border-left: 4px solid var(--modal-cyan);
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 16px;
+    animation: impact-slide-in .3s ease-out;
+  }
+
+  [data-component="11_ChoiceModal"] .consequence-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  [data-component="11_ChoiceModal"] .consequence-tag {
+    font-size: 10px;
+    letter-spacing: .14em;
+    color: var(--modal-cyan);
+  }
+
+  [data-component="11_ChoiceModal"] .consequence-text {
+    font: 15px/1.65 Georgia, serif;
+    color: #dce4e6;
+    margin: 0 0 16px;
+  }
+
+  [data-component="11_ChoiceModal"] .consequence-impact-grid {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 10px 14px;
+    background: #141d20;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  [data-component="11_ChoiceModal"] .impact-stat-item strong {
+    color: var(--modal-amber);
+  }
+
+  [data-component="11_ChoiceModal"] .advance-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 18px;
+    background: transparent;
+    border: 1px solid var(--modal-cyan);
+    color: var(--modal-cyan);
+    font: 700 12px "IBM Plex Mono", monospace;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s ease;
+  }
+
+  [data-component="11_ChoiceModal"] .advance-btn:hover,
+  [data-component="11_ChoiceModal"] .advance-btn:focus-visible {
+    background: var(--modal-cyan);
+    color: #071011;
+    outline: 2px solid var(--modal-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="11_ChoiceModal"] .choice-error {
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    border-left: 2px solid var(--modal-red);
+    color: #f7a8a0;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="11_ChoiceModal"] .choice-status {
+    margin: 14px 0 0;
+    color: var(--modal-amber);
+    font-size: 11px;
+  }
+
+  [data-component="11_ChoiceModal"] .consequence-card:focus-visible {
+    outline: 2px solid var(--modal-amber);
+    outline-offset: 3px;
+  }
+</style>
+
+<section data-component="11_ChoiceModal" role="dialog" aria-modal="true" aria-labelledby="choice-title" aria-describedby="choice-question choice-status choice-error" aria-busy="false">
+  <div class="choice" id="choice-container">
+    <div class="meta-header">
+      <span class="meta-tag" id="choice-meta">DECISÃO CRÍTICA // CENA 01</span>
+      <div class="timer" id="choice-timer" role="timer" aria-live="off">
+        <span aria-hidden="true">⏱</span> <span id="timer-text">05:00</span> restantes
+      </div>
+    </div>
+
+    <h2 id="choice-title">O que você publica agora?</h2>
+    <p class="content-nature-note"><strong>FICÇÃO DIDÁTICA:</strong> esta é uma decisão dentro de um caso simulado. Ela serve para praticar justificativa e revisão, não para orientar publicação sobre fatos reais.</p>
+    <p class="question" id="choice-question">Você tem um áudio sem confirmação independente. A urgência do furo jornalístico deve superar a necessidade de checagem documental?</p>
+
+    <!-- Formulário de Escolha em Dois Estágios -->
+    <form id="choice-form" aria-busy="false">
+      <fieldset>
+        <legend class="sr-only">Selecione uma alternativa de investigação</legend>
+
+        <!-- Opção 1: Publicação Imediata -->
+        <div class="choice-option" id="option-publish-box">
+          <label class="choice-label" for="choice-publish">
+            <input type="radio" id="choice-publish" name="choice" value="publish">
+            <span><strong>Publicar o áudio imediatamente</strong> e provocar um abalo antes da concorrência.</span>
+          </label>
+          <div class="impact-preview impact-speed" id="impact-publish" hidden>
+            <span class="impact-badge">[ PREVISÃO DE IMPACTO ]</span>
+            <strong>Esta decisão prioriza: Velocidade</strong>
+            <p>Acelera a resposta e pauta a opinião pública, mas assume o risco de contestação judicial por ausência de contraditório.</p>
+          </div>
+        </div>
+
+        <!-- Opção 2: Rigor e Checagem -->
+        <div class="choice-option" id="option-verify-box">
+          <label class="choice-label" for="choice-verify">
+            <input type="radio" id="choice-verify" name="choice" value="verify">
+            <span><strong>Segurar a matéria e cruzar as fontes</strong> com documentos e planilhas do caso.</span>
+          </label>
+          <div class="impact-preview" id="impact-verify" hidden>
+            <span class="impact-badge">[ PREVISÃO DE IMPACTO ]</span>
+            <strong>Esta decisão prioriza: Rigor Documental</strong>
+            <p>Constrói uma apuração mais consistente e explicita o que ainda precisa ser verificado, aceitando o custo do tempo editorial.</p>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Botão de Confirmação em Dois Estágios -->
+      <button type="submit" class="confirm-btn" id="confirm-choice-btn" aria-busy="false" disabled>
+        CONFIRMAR DECISÃO <span aria-hidden="true">→</span>
+      </button>
+    </form>
+
+    <p data-state="status" class="choice-status" id="choice-status" hidden role="status" aria-live="polite" aria-atomic="true"></p>
+
+    <!-- Desdobramento Narrativo Apresentado sem Recarregar a Tela -->
+    <div class="consequence-card" id="consequence-card" hidden role="region" aria-labelledby="consequence-title" tabindex="-1">
+      <div class="consequence-header">
+        <span class="consequence-tag">[ CONSEQUÊNCIA NARRATIVA ]</span>
+        <h3 id="consequence-title" class="sr-only">Resultado da Escolha</h3>
+      </div>
+      <p class="consequence-text" id="consequence-text"></p>
+      <div class="consequence-impact-grid">
+        <div class="impact-stat-item">Velocidade: <strong id="impact-speed-stat">+0</strong></div>
+        <div class="impact-stat-item">Rigor Documental: <strong id="impact-rigor-stat">+0</strong></div>
+      </div>
+      <button type="button" class="advance-btn" id="choice-advance-btn">
+        <span id="choice-advance-label">CONTINUAR APURAÇÃO NA PRÓXIMA CENA</span> <span aria-hidden="true">→</span>
+      </button>
+    </div>
+
+    <p data-state="error" class="choice-error" id="choice-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Selecione uma alternativa para continuar.</p>
+  </div>
+</section>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="11_ChoiceModal"]');
+  if (!root) return;
+
+  var container = root.querySelector('#choice-container');
+  var form = root.querySelector('#choice-form');
+  var choiceMeta = root.querySelector('#choice-meta');
+  var timerEl = root.querySelector('#choice-timer');
+  var timerText = root.querySelector('#timer-text');
+  var confirmBtn = root.querySelector('#confirm-choice-btn');
+  var impactPublish = root.querySelector('#impact-publish');
+  var impactVerify = root.querySelector('#impact-verify');
+  var consequenceCard = root.querySelector('#consequence-card');
+  var consequenceText = root.querySelector('#consequence-text');
+  var impactSpeedStat = root.querySelector('#impact-speed-stat');
+  var impactRigorStat = root.querySelector('#impact-rigor-stat');
+  var advanceBtn = root.querySelector('#choice-advance-btn');
+  var advanceLabel = root.querySelector('#choice-advance-label');
+  var statusEl = root.querySelector('#choice-status');
+  var errorEl = root.querySelector('#choice-error');
+
+  var submitted = false;
+  var remainingSeconds = 300; // 5 minutos
+  var timerInterval = null;
+  var currentSceneId = 'scene-01';
+  var lastAction = null;
+
+  try {
+    currentSceneId = String(window.localStorage.getItem('current_scene_id') || 'scene-01');
+  } catch (ignored) {}
+
+  function getSceneNumber(sceneId) {
+    var match = /^scene-(\d+)$/i.exec(String(sceneId || ''));
+    return match ? Number(match[1]) : 1;
+  }
+
+  function getNextSceneId() {
+    var nextNumber = getSceneNumber(currentSceneId) + 1;
+    return nextNumber <= 5 ? 'scene-' + String(nextNumber).padStart(2, '0') : '';
+  }
+
+  function updateSceneContext() {
+    var sceneNumber = getSceneNumber(currentSceneId);
+    if (choiceMeta) choiceMeta.textContent = 'DECISÃO CRÍTICA // CENA ' + String(sceneNumber).padStart(2, '0');
+    var nextSceneId = getNextSceneId();
+    if (advanceLabel) advanceLabel.textContent = nextSceneId
+      ? 'CONTINUAR APURAÇÃO NA PRÓXIMA CENA'
+      : 'REVISAR EVIDÊNCIAS DA APURAÇÃO';
+  }
+
+  function setBusy(busy, message) {
+    root.setAttribute('aria-busy', String(Boolean(busy)));
+    if (form) form.setAttribute('aria-busy', String(Boolean(busy)));
+    if (confirmBtn) {
+      confirmBtn.setAttribute('aria-busy', String(Boolean(busy)));
+      confirmBtn.disabled = Boolean(busy) || !form || !form.querySelector('input[name="choice"]:checked');
+    }
+    if (statusEl) {
+      statusEl.textContent = message || '';
+      statusEl.hidden = !message;
+    }
+  }
+
+  function showError(message, moveFocus) {
+    if (!errorEl) return;
+    errorEl.textContent = message || 'Não foi possível registrar a decisão.';
+    errorEl.hidden = false;
+    if (moveFocus) {
+      try { errorEl.focus(); } catch (ignored) {}
+    }
+  }
+
+  updateSceneContext();
+
+  // 1 & 2. Previsão de Impacto e Ativação Pulsante do Botão em Dois Estágios
+  var radios = form ? form.querySelectorAll('input[name="choice"]') : [];
+  radios.forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      if (submitted) return;
+      if (errorEl) errorEl.hidden = true;
+      if (statusEl) statusEl.hidden = true;
+
+      if (radio.value === 'publish') {
+        if (impactPublish) impactPublish.hidden = false;
+        if (impactVerify) impactVerify.hidden = true;
+      } else if (radio.value === 'verify') {
+        if (impactVerify) impactVerify.hidden = false;
+        if (impactPublish) impactPublish.hidden = true;
+      }
+
+      // Habilita o botão e aplica a pulsação em ciano
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.setAttribute('aria-busy', 'false');
+        confirmBtn.classList.add('btn-ready');
+      }
+    });
+  });
+
+  // 3. Temporizador com alerta visual em vermelho neon (< 30s) sem áudio invasivo
+  function formatTime(sec) {
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+  }
+
+  function startTimer(duration) {
+    remainingSeconds = duration || 300;
+    if (timerInterval) clearInterval(timerInterval);
+
+    timerInterval = setInterval(function() {
+      if (submitted) {
+        clearInterval(timerInterval);
+        return;
+      }
+
+      remainingSeconds--;
+      if (timerText) timerText.textContent = formatTime(Math.max(0, remainingSeconds));
+
+      // Menos de 30 segundos: intensifica borda em vermelho neon pulsante
+      if (remainingSeconds <= 30 && remainingSeconds > 0) {
+        if (container) container.classList.add('modal-urgent');
+        if (timerEl) timerEl.classList.add('urgent');
+      }
+
+      if (remainingSeconds <= 0) {
+        clearInterval(timerInterval);
+        if (timerText) timerText.textContent = '00:00 - PRAZO ENCERRADO';
+        submitChoiceAction('inaction');
+      }
+    }, 1000);
+  }
+
+  startTimer(300);
+
+  window.addEventListener('timer:expired', function() {
+    submitChoiceAction('inaction');
+  });
+
+  // 4. Submissão, Spinner Ciano e Consequência Narrativa sem recarregar a tela
+  function submitChoiceAction(action) {
+    if (submitted) return;
+    submitted = true;
+    lastAction = action;
+
+    if (timerInterval) clearInterval(timerInterval);
+    window.dispatchEvent(new CustomEvent('timer:pause'));
+    setBusy(true, action === 'inaction' ? 'Prazo encerrado. Registrando inação…' : 'Registrando decisão no servidor…');
+    if (errorEl) errorEl.hidden = true;
+
+    // Desativa imediatamente o formulário
+    if (form) {
+      form.querySelectorAll('input').forEach(function(i) { i.disabled = true; });
+    }
+
+    // Spinner ciano no botão
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.setAttribute('aria-busy', 'true');
+      confirmBtn.classList.remove('btn-ready');
+      confirmBtn.innerHTML = '<span class="spinner-cyan" aria-hidden="true"></span> PROCESSANDO DECISÃO...';
+    }
+
+    function handleSuccess(response) {
+      var res = response && response.data ? response.data : response;
+      if (!response || !response.ok || !res || !res.consequence || !res.impact) {
+        handleFailure(response && response.error && response.error.message);
+        return;
+      }
+      if (form) form.hidden = true;
+      setBusy(false, 'Decisão registrada. Consequência confirmada.');
+      if (statusEl) statusEl.hidden = false;
+
+      var impact = res.impact;
+      var narrative = String(res.consequence);
+      var speedImpact = Number(impact.speed);
+      var rigorImpact = Number(impact.documentaryRigor);
+
+      if (consequenceCard) {
+        consequenceCard.hidden = false;
+        if (consequenceText) consequenceText.textContent = narrative;
+        if (impactSpeedStat) impactSpeedStat.textContent = isNaN(speedImpact) ? '—' : (speedImpact >= 0 ? '+' : '') + speedImpact;
+        if (impactRigorStat) impactRigorStat.textContent = isNaN(rigorImpact) ? '—' : (rigorImpact >= 0 ? '+' : '') + rigorImpact;
+        consequenceCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        try { consequenceCard.focus(); } catch (ignored) {}
+      }
+
+      window.dispatchEvent(new CustomEvent('choice:resolved', {
+        detail: { choice: action, consequence: narrative, impact: impact }
+      }));
+
+      if (typeof window.showToast === 'function') {
+        window.showToast('Decisão Registrada', 'Consequência narrativa incorporada ao dossiê.', 'success');
+      }
+    }
+
+    function handleFailure(message) {
+      submitted = false;
+      setBusy(false);
+      if (form) {
+        form.hidden = false;
+        form.querySelectorAll('input').forEach(function(i) { i.disabled = false; });
+      }
+      if (confirmBtn) {
+        confirmBtn.disabled = !form || !form.querySelector('input[name="choice"]:checked');
+        confirmBtn.setAttribute('aria-busy', 'false');
+        confirmBtn.innerHTML = 'CONFIRMAR DECISÃO <span aria-hidden="true">→</span>';
+      }
+      showError(message || 'Servidor indisponível. A decisão não foi registrada.', true);
+      if (remainingSeconds > 0) startTimer(remainingSeconds);
+    }
+
+    var playerId = window.currentUserId ? String(window.currentUserId) : '';
+    var sessionToken = window.currentSessionToken;
+    if (!sessionToken) {
+      try {
+        var saved = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+        if (saved && saved.token) {
+          window.currentSessionToken = String(saved.token);
+          sessionToken = window.currentSessionToken;
+        }
+      } catch (ignored) {}
+    }
+    if (!playerId && !sessionToken) {
+      handleFailure('Sua sessão expirou. Entre novamente para registrar a decisão.');
+      return;
+    }
+
+    if (window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(handleSuccess)
+        .withFailureHandler(function() {
+          handleFailure('Falha de comunicação. A decisão não foi registrada; tente novamente.');
+        })
+        .submitChoice(action, sessionToken || playerId, currentSceneId);
+    } else {
+      handleFailure('Servidor indisponível. A decisão não foi registrada.');
+    }
+  }
+
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var selected = form.querySelector('input[name="choice"]:checked');
+      if (!selected) {
+        showError('Selecione uma alternativa para continuar.', true);
+        return;
+      }
+      submitChoiceAction(selected.value);
+    });
+  }
+
+  if (advanceBtn) {
+    advanceBtn.addEventListener('click', function() {
+      var nextSceneId = getNextSceneId();
+      if (nextSceneId) {
+        try { window.localStorage.setItem('current_scene_id', nextSceneId); } catch (ignored) {}
+      }
+      window.dispatchEvent(new CustomEvent('scene:advance', { detail: { nextScene: nextSceneId || null, previousScene: currentSceneId } }));
+      window.location.hash = nextSceneId ? 'scene' : 'evidence';
+    });
+  }
+
+  window.addEventListener('phase:selected', function(event) {
+    var nextSceneId = event.detail && event.detail.sceneId ? String(event.detail.sceneId) : '';
+    if (!nextSceneId || nextSceneId === currentSceneId || submitted) return;
+    currentSceneId = nextSceneId;
+    updateSceneContext();
+  });
+}());
+</script>

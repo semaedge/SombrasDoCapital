@@ -1,0 +1,738 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 22_ReportBuilder.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Editor de reportagem com validação e estados acessíveis
+
+  PRINCIPAIS FUNCIONALIDADES
+  Editor da reportagem.
+
+  INTEGRAÇÕES
+  Monta título, tese, evidências, contrapontos e conclusão.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva com layout em duas colunas, validação de campos,
+  slots de evidências e salvamento com feedback anunciável.
+-->
+<section data-component="22_ReportBuilder" aria-labelledby="report-builder-heading" aria-describedby="report-builder-description" aria-busy="false">
+  <div class="report-builder-container">
+    <header class="builder-header">
+      <div class="meta-tag">[ EPISÓDIO 05 // FECHAMENTO DA INVESTIGAÇÃO ]</div>
+      <h2 id="report-builder-heading">Assistente de Redação da Reportagem</h2>
+      <p id="report-builder-description" class="builder-subtitle">Estruture a narrativa jornalística combinando manchete de impacto, tese central e a tríade de provas documentais.</p>
+    </header>
+
+    <div class="report-builder-grid">
+      <!-- Coluna Esquerda: Caixa de Redação (Título, Tese e Slots) -->
+      <div class="column-draft">
+        <form id="report-form">
+          <!-- Campo 1: Título / Manchete -->
+          <div class="field-group">
+            <div class="field-label-row">
+              <label for="report-title" class="field-label">MANCHETE / TÍTULO DA MATÉRIA</label>
+              <span class="char-counter" id="title-counter" aria-live="polite" aria-atomic="true">0 / 180</span>
+            </div>
+            <input
+              type="text"
+              id="report-title"
+              name="report-title"
+              placeholder="Ex: Rastreamento financeiro revela repasses secretos de holding a agentes públicos"
+              maxlength="180"
+              required
+              autocomplete="off"
+              aria-describedby="title-hint title-limit-msg"
+            >
+            <p class="field-hint" id="title-hint">Seja claro, objetivo e foque no fato apurado principal.</p>
+            <p class="limit-warning" id="title-limit-msg" hidden role="status">⚠️ Atenção: você atingiu o limite máximo de 180 caracteres para a manchete.</p>
+          </div>
+
+          <!-- Campo 2: Tese Central e Argumentação -->
+          <div class="field-group">
+            <div class="field-label-row">
+              <label for="report-thesis" class="field-label">TESE CENTRAL E ARGUMENTAÇÃO INVESTIGATIVA</label>
+              <span class="char-counter" id="thesis-counter" aria-live="polite" aria-atomic="true">0 / 5000</span>
+            </div>
+            <textarea
+              id="report-thesis"
+              name="report-thesis"
+              rows="9"
+              placeholder="Apresente a linha do tempo, aponte a contradição entre os depoimentos e demonstre como as 3 evidências selecionadas sustentam o fechamento da investigação..."
+              maxlength="5000"
+              required
+              aria-describedby="thesis-hint thesis-limit-msg"
+            ></textarea>
+            <p class="field-hint" id="thesis-hint">Confronte as declarações das fontes com os dados das planilhas e contratos.</p>
+            <p class="limit-warning" id="thesis-limit-msg" hidden role="status">⚠️ Atenção: limite máximo de 5000 caracteres atingido.</p>
+          </div>
+
+          <!-- Slots de Evidências Selecionadas -->
+          <div class="evidence-slots-panel">
+            <div class="slots-header">
+              <span class="slots-title" id="slots-title">TRÍADE PROBATÓRIA (3 SLOTS)</span>
+              <span class="slots-indicator" id="slots-count-indicator" aria-live="polite" aria-atomic="true">0 / 3 preenchidos</span>
+            </div>
+
+            <div class="slots-container" id="slots-container" role="list" aria-labelledby="slots-title" tabindex="-1">
+              <div class="evidence-slot" id="slot-1" data-slot-index="0" role="listitem" aria-label="Slot 01 vazio">
+                <span class="slot-num">SLOT 01</span>
+                <span class="slot-text">Aguardando seleção no painel lateral...</span>
+              </div>
+              <div class="evidence-slot" id="slot-2" data-slot-index="1" role="listitem" aria-label="Slot 02 vazio">
+                <span class="slot-num">SLOT 02</span>
+                <span class="slot-text">Aguardando seleção no painel lateral...</span>
+              </div>
+              <div class="evidence-slot" id="slot-3" data-slot-index="2" role="listitem" aria-label="Slot 03 vazio">
+                <span class="slot-num">SLOT 03</span>
+                <span class="slot-text">Aguardando seleção no painel lateral...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ações e Mensagens -->
+          <button type="submit" class="save-report-btn" id="save-report-btn" disabled aria-describedby="report-submit-status">
+            <span id="save-report-label">SALVAR REPORTAGEM FINAL</span> <span aria-hidden="true">→</span>
+          </button>
+
+          <p id="report-submit-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+          <p data-state="error" class="report-msg report-msg-error" id="report-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1"></p>
+          <p data-state="result" class="report-msg report-msg-success" id="report-result" hidden role="status" aria-live="polite" aria-atomic="true" tabindex="-1"></p>
+        </form>
+      </div>
+
+      <!-- Coluna Direita: Seletor de Evidências Integrado -->
+      <div class="column-picker" id="report-picker-column">
+        <?!= HtmlService.createHtmlOutputFromFile('23_ReportEvidencePicker').getContent(); ?>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="22_ReportBuilder"] {
+    --rb-bg: var(--color-deep-shadow);
+    --rb-panel: var(--color-dark-graphite);
+    --rb-line: var(--color-slate-gray);
+    --rb-cyan: var(--color-neon-cyan);
+    --rb-amber: var(--color-warning-amber);
+    --rb-red: var(--color-coral-red);
+    --rb-ink: var(--color-light-gray);
+    --rb-muted: var(--color-medium-gray);
+    padding: 24px;
+    color: var(--rb-ink);
+    background: var(--rb-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="22_ReportBuilder"] .report-builder-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  [data-component="22_ReportBuilder"] .builder-header {
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--rb-line);
+    padding-bottom: 16px;
+  }
+
+  [data-component="22_ReportBuilder"] .meta-tag {
+    color: var(--rb-amber);
+    font-size: 10px;
+    letter-spacing: .14em;
+    margin-bottom: 4px;
+  }
+
+  [data-component="22_ReportBuilder"] h2 {
+    margin: 4px 0 6px;
+    font: 700 clamp(22px, 3.5vw, 28px) Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="22_ReportBuilder"] .builder-subtitle {
+    color: var(--rb-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  [data-component="22_ReportBuilder"] .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Grid em Duas Colunas */
+  [data-component="22_ReportBuilder"] .report-builder-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    [data-component="22_ReportBuilder"] .report-builder-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  [data-component="22_ReportBuilder"] .column-draft {
+    background: var(--rb-panel);
+    border: 1px solid var(--rb-line);
+    border-radius: 4px;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+
+  [data-component="22_ReportBuilder"] .field-group {
+    margin-bottom: 20px;
+  }
+
+  [data-component="22_ReportBuilder"] .field-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  [data-component="22_ReportBuilder"] .field-label {
+    color: var(--rb-cyan);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+  }
+
+  [data-component="22_ReportBuilder"] .char-counter {
+    font-size: 10px;
+    color: var(--rb-muted);
+    font-family: "IBM Plex Mono", monospace;
+    transition: color .15s ease;
+  }
+
+  [data-component="22_ReportBuilder"] .char-counter.warning {
+    color: var(--rb-amber);
+    font-weight: 700;
+  }
+
+  [data-component="22_ReportBuilder"] .char-counter.limit {
+    color: var(--rb-red);
+    font-weight: 700;
+  }
+
+  [data-component="22_ReportBuilder"] input[type="text"],
+  [data-component="22_ReportBuilder"] textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: #0f1416;
+    border: 1px solid var(--rb-line);
+    color: var(--rb-ink);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    border-radius: 3px;
+    box-sizing: border-box;
+    transition: border-color .15s ease;
+  }
+
+  [data-component="22_ReportBuilder"] input[type="text"]:focus,
+  [data-component="22_ReportBuilder"] textarea:focus {
+    outline: 2px solid var(--rb-cyan);
+    outline-offset: 1px;
+    border-color: var(--rb-cyan);
+  }
+
+  [data-component="22_ReportBuilder"] input[aria-invalid="true"],
+  [data-component="22_ReportBuilder"] textarea[aria-invalid="true"] {
+    border-color: var(--rb-red);
+  }
+
+  [data-component="22_ReportBuilder"] .field-hint {
+    margin: 6px 0 0;
+    color: var(--rb-muted);
+    font-size: 10px;
+  }
+
+  [data-component="22_ReportBuilder"] .limit-warning {
+    margin: 6px 0 0;
+    color: var(--rb-red);
+    font-size: 11px;
+    background: rgba(226, 116, 104, 0.1);
+    padding: 4px 8px;
+    border-radius: 2px;
+    border-left: 2px solid var(--rb-red);
+  }
+
+  /* Painel de Slots de Evidências */
+  [data-component="22_ReportBuilder"] .evidence-slots-panel {
+    margin: 24px 0;
+    background: #0e1315;
+    border: 1px solid var(--rb-line);
+    border-radius: 4px;
+    padding: 16px;
+  }
+
+  [data-component="22_ReportBuilder"] .slots-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  [data-component="22_ReportBuilder"] .slots-title {
+    font-size: 10px;
+    letter-spacing: .12em;
+    color: var(--rb-amber);
+    font-weight: 700;
+  }
+
+  [data-component="22_ReportBuilder"] .slots-indicator {
+    font-size: 10px;
+    color: var(--rb-muted);
+  }
+
+  [data-component="22_ReportBuilder"] .slots-container {
+    display: grid;
+    gap: 8px;
+  }
+
+  [data-component="22_ReportBuilder"] .evidence-slot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #141b1d;
+    border: 1px dashed var(--rb-line);
+    border-radius: 3px;
+    transition: all .25s ease;
+  }
+
+  [data-component="22_ReportBuilder"] .slots-container:focus-visible {
+    outline: 2px solid var(--rb-amber);
+    outline-offset: 3px;
+  }
+
+  [data-component="22_ReportBuilder"] .evidence-slot .slot-num {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: var(--rb-muted);
+    background: var(--color-deep-shadow);
+    padding: 3px 6px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  [data-component="22_ReportBuilder"] .evidence-slot .slot-text {
+    font-size: 11px;
+    color: #6d7e84;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Efeito de Iluminação em Ciano ao preencher os 3 slots */
+  [data-component="22_ReportBuilder"] .evidence-slot.slot-filled {
+    border-style: solid;
+    border-color: #354a52;
+    background: #111a1d;
+  }
+
+  [data-component="22_ReportBuilder"] .evidence-slot.slot-filled .slot-text {
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  [data-component="22_ReportBuilder"] .evidence-slot.slot-illuminated {
+    border-color: var(--rb-cyan) !important;
+    background: #122124 !important;
+    box-shadow: 0 0 14px rgba(104, 212, 208, 0.45);
+  }
+
+  [data-component="22_ReportBuilder"] .evidence-slot.slot-illuminated .slot-num {
+    color: #071011;
+    background: var(--rb-cyan);
+  }
+
+  /* Botão Salvar Reportagem */
+  [data-component="22_ReportBuilder"] .save-report-btn {
+    width: 100%;
+    padding: 14px 20px;
+    border: 1px solid var(--rb-line);
+    background: #1b2427;
+    color: var(--rb-muted);
+    font: 700 12px "IBM Plex Mono", monospace;
+    letter-spacing: .08em;
+    cursor: not-allowed;
+    border-radius: 3px;
+    transition: all .2s ease;
+  }
+
+  [data-component="22_ReportBuilder"] .save-report-btn:disabled {
+    opacity: .75;
+  }
+
+  [data-component="22_ReportBuilder"] .save-report-btn.btn-enabled {
+    border-color: var(--rb-cyan);
+    background: var(--rb-cyan);
+    color: #071011;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(104, 212, 208, 0.4);
+  }
+
+  [data-component="22_ReportBuilder"] .save-report-btn.btn-enabled:hover,
+  [data-component="22_ReportBuilder"] .save-report-btn.btn-enabled:focus-visible {
+    background: #84eae6;
+    outline: 2px solid var(--rb-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="22_ReportBuilder"] .report-msg {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 3px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="22_ReportBuilder"] .report-msg-error {
+    background: rgba(226, 116, 104, 0.12);
+    border-left: 3px solid var(--rb-red);
+    color: #f7a8a0;
+  }
+
+  [data-component="22_ReportBuilder"] .report-msg-success {
+    background: rgba(104, 212, 208, 0.12);
+    border-left: 3px solid var(--rb-cyan);
+    color: #ffffff;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="22_ReportBuilder"] .char-counter,
+    [data-component="22_ReportBuilder"] input[type="text"],
+    [data-component="22_ReportBuilder"] textarea,
+    [data-component="22_ReportBuilder"] .evidence-slot,
+    [data-component="22_ReportBuilder"] .save-report-btn {
+      transition: none;
+    }
+
+    [data-component="22_ReportBuilder"] .evidence-slot.slot-illuminated {
+      box-shadow: none;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="22_ReportBuilder"]');
+  if (!root) return;
+
+  var form = root.querySelector('#report-form');
+  var titleInput = root.querySelector('#report-title');
+  var thesisInput = root.querySelector('#report-thesis');
+  var titleCounter = root.querySelector('#title-counter');
+  var thesisCounter = root.querySelector('#thesis-counter');
+  var titleLimitMsg = root.querySelector('#title-limit-msg');
+  var thesisLimitMsg = root.querySelector('#thesis-limit-msg');
+  var slotsContainer = root.querySelector('#slots-container');
+  var slotsIndicator = root.querySelector('#slots-count-indicator');
+  var saveBtn = root.querySelector('#save-report-btn');
+  var saveLabel = root.querySelector('#save-report-label');
+  var submitStatus = root.querySelector('#report-submit-status');
+  var errorMsg = root.querySelector('#report-error');
+  var resultMsg = root.querySelector('#report-result');
+
+  var currentEvidence = [];
+  var isSaving = false;
+  var submissionSerial = 0;
+  var validationAttempted = false;
+  var defaultSaveLabel = 'SALVAR REPORTAGEM FINAL';
+
+  function displayText(value, fallback) {
+    if (typeof value === 'string') {
+      var trimmed = value.trim();
+      return trimmed || fallback;
+    }
+    if (typeof value === 'number' && isFinite(value)) return String(value);
+    return fallback;
+  }
+
+  function restoreUserId() {
+    if (window.currentUserId && window.currentSessionToken) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(window.localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.user || !saved.user.id) return window.currentUserId ? String(window.currentUserId) : '';
+      if (saved.token) window.currentSessionToken = String(saved.token);
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (ignored) {
+      return window.currentUserId ? String(window.currentUserId) : '';
+    }
+  }
+
+  function normalizeEvidenceSelection(items) {
+    if (!Array.isArray(items)) return [];
+    var seen = {};
+    var normalized = [];
+    items.forEach(function(item) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+      var id = displayText(item.id, '');
+      if (!id || seen[id] || normalized.length >= 3) return;
+      seen[id] = true;
+      normalized.push({
+        id: id,
+        title: displayText(item.title || item.name, 'Evidência sem título'),
+        type: displayText(item.type, 'DOCUMENTO'),
+        contentNatureLabel: displayText(item.contentNatureLabel, 'NATUREZA NÃO CLASSIFICADA'),
+        reliability: displayText(item.reliability, 'não classificada'),
+        phase: displayText(item.phase, 'Fase não informada')
+      });
+    });
+    return normalized;
+  }
+
+  function clearMessages() {
+    if (errorMsg) errorMsg.hidden = true;
+    if (resultMsg) resultMsg.hidden = true;
+    if (submitStatus) submitStatus.textContent = '';
+  }
+
+  function showError(message) {
+    if (resultMsg) resultMsg.hidden = true;
+    if (submitStatus) submitStatus.textContent = message;
+    if (errorMsg) {
+      errorMsg.textContent = message;
+      errorMsg.hidden = false;
+      errorMsg.focus();
+    }
+  }
+
+  function showResult(message) {
+    if (errorMsg) errorMsg.hidden = true;
+    if (submitStatus) submitStatus.textContent = message;
+    if (resultMsg) {
+      resultMsg.textContent = message;
+      resultMsg.hidden = false;
+      resultMsg.focus();
+    }
+  }
+
+  function setSaving(saving) {
+    isSaving = Boolean(saving);
+    root.setAttribute('aria-busy', isSaving ? 'true' : 'false');
+    if (saveBtn) saveBtn.setAttribute('aria-busy', isSaving ? 'true' : 'false');
+    if (saveLabel) saveLabel.textContent = isSaving ? 'GRAVANDO REPORTAGEM...' : defaultSaveLabel;
+    validateForm();
+  }
+
+  function updateCounters() {
+    var titleLength = titleInput ? titleInput.value.length : 0;
+    var thesisLength = thesisInput ? thesisInput.value.length : 0;
+
+    if (titleCounter) {
+      titleCounter.textContent = titleLength + ' / 180';
+      titleCounter.classList.toggle('warning', titleLength >= 150 && titleLength < 180);
+      titleCounter.classList.toggle('limit', titleLength >= 180);
+    }
+    if (titleLimitMsg) titleLimitMsg.hidden = titleLength < 180;
+
+    if (thesisCounter) {
+      thesisCounter.textContent = thesisLength + ' / 5000';
+      thesisCounter.classList.toggle('warning', thesisLength >= 4500 && thesisLength < 5000);
+      thesisCounter.classList.toggle('limit', thesisLength >= 5000);
+    }
+    if (thesisLimitMsg) thesisLimitMsg.hidden = thesisLength < 5000;
+
+    if (validationAttempted) {
+      if (titleInput) titleInput.setAttribute('aria-invalid', titleInput.value.trim() ? 'false' : 'true');
+      if (thesisInput) thesisInput.setAttribute('aria-invalid', thesisInput.value.trim() ? 'false' : 'true');
+    }
+    validateForm();
+    dispatchPreview();
+  }
+
+  function validateForm() {
+    var hasTitle = Boolean(titleInput && titleInput.value.trim());
+    var hasThesis = Boolean(thesisInput && thesisInput.value.trim());
+    var hasThreeEvidence = currentEvidence.length === 3;
+    var canSave = hasTitle && hasThesis && hasThreeEvidence;
+
+    if (saveBtn) {
+      saveBtn.disabled = isSaving || !canSave;
+      saveBtn.classList.toggle('btn-enabled', canSave && !isSaving);
+      saveBtn.setAttribute('aria-disabled', saveBtn.disabled ? 'true' : 'false');
+    }
+    return canSave;
+  }
+
+  function renderSlots() {
+    var count = currentEvidence.length;
+    var complete = count === 3;
+    if (slotsIndicator) slotsIndicator.textContent = count + ' / 3 preenchidos';
+
+    for (var i = 0; i < 3; i++) {
+      var slot = root.querySelector('#slot-' + (i + 1));
+      if (!slot) continue;
+      var text = slot.querySelector('.slot-text');
+      var item = currentEvidence[i];
+      var slotNumber = i < 9 ? '0' + (i + 1) : String(i + 1);
+
+      if (item) {
+        var type = displayText(item.type, 'DOCUMENTO').toUpperCase();
+        slot.className = 'evidence-slot slot-filled' + (complete ? ' slot-illuminated' : '');
+        slot.setAttribute('aria-label', 'Slot ' + slotNumber + ': ' + item.title);
+        if (text) text.textContent = '[' + type + '] ' + item.title;
+      } else {
+        slot.className = 'evidence-slot';
+        slot.setAttribute('aria-label', 'Slot ' + slotNumber + ' vazio');
+        if (text) text.textContent = 'Aguardando seleção no painel lateral...';
+      }
+    }
+  }
+
+  function dispatchPreview() {
+    window.dispatchEvent(new CustomEvent('report:preview', {
+      detail: {
+        title: titleInput ? titleInput.value.trim() : '',
+        thesis: thesisInput ? thesisInput.value.trim() : '',
+        evidenceIds: currentEvidence.map(function(item) { return item.id; }),
+        items: currentEvidence.slice()
+      }
+    }));
+  }
+
+  function getSaveErrorMessage(response) {
+    var code = response && response.error && response.error.code;
+    if (code === 'INVALID_PLAYER') return 'Sua sessão expirou. Entre novamente para salvar a reportagem.';
+    if (code === 'INVALID_REPORT') return 'Preencha a manchete, a tese e selecione exatamente 3 evidências diferentes.';
+    if (code === 'EVIDENCE_NOT_AVAILABLE') return 'Uma evidência selecionada não está mais disponível. Atualize a seleção.';
+    return 'Não foi possível salvar a reportagem. Tente novamente.';
+  }
+
+  function coherenceLabel(data) {
+    var value = data && Number(data.coherence);
+    if (!isFinite(value)) return 'indisponível';
+    return Math.max(0, Math.min(100, Math.round(value))) + '%';
+  }
+
+  if (titleInput) titleInput.addEventListener('input', function() {
+    clearMessages();
+    updateCounters();
+  });
+  if (thesisInput) thesisInput.addEventListener('input', function() {
+    clearMessages();
+    updateCounters();
+  });
+
+  window.addEventListener('report:evidence-selection', function(event) {
+    var detail = event.detail || {};
+    currentEvidence = normalizeEvidenceSelection(detail.items);
+    clearMessages();
+    renderSlots();
+    validateForm();
+    dispatchPreview();
+  });
+
+  if (form) {
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+      validationAttempted = true;
+      updateCounters();
+
+      if (!validateForm()) {
+        showError('Preencha a manchete, a tese e selecione exatamente 3 evidências antes de salvar.');
+        return;
+      }
+      if (isSaving) return;
+
+      var playerId = restoreUserId();
+      if (!playerId) {
+        showError('Sua sessão não está ativa. Entre novamente para salvar a reportagem.');
+        return;
+      }
+
+      clearMessages();
+      setSaving(true);
+      var requestId = ++submissionSerial;
+      var titleValue = titleInput.value.trim();
+      var thesisValue = thesisInput.value.trim();
+      var evidenceIds = currentEvidence.map(function(item) { return item.id; });
+
+      function restoreAfterRequest() {
+        if (requestId === submissionSerial) setSaving(false);
+      }
+
+      function handleSuccess(response) {
+        if (requestId !== submissionSerial) return;
+        restoreAfterRequest();
+        if (!response || !response.ok) {
+          showError(getSaveErrorMessage(response));
+          return;
+        }
+
+        var data = response.data && typeof response.data === 'object' ? response.data : {};
+        showResult('Reportagem salva para revisão. Índice de Coerência Probatória: ' + coherenceLabel(data));
+        window.dispatchEvent(new CustomEvent('report:saved', {
+          detail: {
+            reportId: displayText(data.reportId, ''),
+            coherence: coherenceLabel(data)
+          }
+        }));
+      }
+
+      function handleFailure() {
+        if (requestId !== submissionSerial) return;
+        restoreAfterRequest();
+        showError('Falha de comunicação com o servidor. Tente novamente.');
+      }
+
+      if (window.google && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(handleSuccess)
+          .withFailureHandler(handleFailure)
+          .saveFinalReport(window.currentSessionToken || playerId, {
+            title: titleValue,
+            thesis: thesisValue,
+            evidenceIds: evidenceIds
+          });
+      } else {
+        handleFailure();
+      }
+    });
+  }
+
+  renderSlots();
+  updateCounters();
+}());
+</script>

@@ -1,0 +1,522 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 20_CharacterPanel.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Painel de fontes com carregamento e estados acessíveis
+
+  PRINCIPAIS FUNCIONALIDADES
+  Painel de personagens.
+
+  INTEGRAÇÕES
+  Contextualiza Fonte, Editor-Chefe, lobistas e políticos.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva com estados de carregamento, vazio e erro.
+-->
+<section data-component="20_CharacterPanel" aria-labelledby="char-panel-title" aria-describedby="char-panel-status" aria-busy="false">
+  <div class="panel-header">
+    <div class="panel-tag">[ DOSSIÊ // PERSONAGENS ]</div>
+    <h2 id="char-panel-title">Painel de Fontes e Atores-Chave</h2>
+    <p class="panel-intro">Clique sobre qualquer alegação nos balões de fala para abrir o confronto direto com as evidências coletadas.</p>
+  </div>
+
+  <p data-state="loading" id="char-panel-loading" class="char-state-msg" hidden role="status" aria-live="polite" aria-atomic="true">Carregando perfil das fontes…</p>
+  <p data-state="empty" id="char-panel-empty" class="char-state-msg" hidden role="status" aria-live="polite" aria-atomic="true">Nenhuma fonte foi encontrada para esta investigação.</p>
+  <p data-state="error" id="char-panel-status" class="char-state-msg char-error-msg" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível carregar as fontes da investigação.</p>
+  <button type="button" id="char-panel-retry" class="char-retry-btn" hidden>TENTAR NOVAMENTE</button>
+
+  <div class="characters-grid" data-slot="content" aria-live="polite" aria-atomic="true"></div>
+</section>
+
+<style>
+  [data-component="20_CharacterPanel"] {
+    --char-bg: #111618;
+    --char-card: #161d20;
+    --char-card-hover: #1c2529;
+    --char-line: #2a363b;
+    --char-cyan: var(--color-neon-cyan);
+    --char-amber: var(--color-warning-amber);
+    --char-ink: var(--color-light-gray);
+    --char-muted: var(--color-medium-gray);
+    padding: 24px;
+    background: var(--char-bg);
+    color: var(--char-ink);
+    border: 1px solid var(--char-line);
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  [data-component="20_CharacterPanel"] .panel-header {
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--char-line);
+    padding-bottom: 16px;
+  }
+
+  [data-component="20_CharacterPanel"] .panel-tag {
+    font-size: 10px;
+    letter-spacing: .14em;
+    color: var(--char-cyan);
+    margin-bottom: 6px;
+  }
+
+  [data-component="20_CharacterPanel"] h2 {
+    margin: 0 0 8px;
+    font: 700 24px/1.1 Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="20_CharacterPanel"] .panel-intro {
+    margin: 0;
+    color: var(--char-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  [data-component="20_CharacterPanel"] .char-state-msg {
+    padding: 12px 16px;
+    background: var(--char-card);
+    border-left: 3px solid var(--char-cyan);
+    font-size: 12px;
+    margin: 16px 0;
+  }
+
+  [data-component="20_CharacterPanel"] .char-error-msg {
+    border-left-color: var(--color-coral-red);
+    color: #f7a8a0;
+  }
+
+  [data-component="20_CharacterPanel"] .char-retry-btn {
+    margin: 0 0 16px;
+    padding: 9px 12px;
+    border: 1px solid var(--char-cyan);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--char-cyan);
+    font: 700 10px/1.2 "IBM Plex Mono", monospace;
+    letter-spacing: .08em;
+    cursor: pointer;
+  }
+
+  [data-component="20_CharacterPanel"] .char-retry-btn:hover {
+    background: rgba(104, 212, 208, .12);
+  }
+
+  [data-component="20_CharacterPanel"] .char-retry-btn:focus-visible {
+    outline: 2px solid var(--char-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="20_CharacterPanel"] .characters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+
+  [data-component="20_CharacterPanel"] .character-card {
+    background: var(--char-card);
+    border: 1px solid var(--char-line);
+    border-radius: 4px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    transition: border-color .2s ease;
+  }
+
+  [data-component="20_CharacterPanel"] .character-card:focus-within {
+    border-color: var(--char-cyan);
+  }
+
+  [data-component="20_CharacterPanel"] .character-card[aria-busy="true"] {
+    opacity: .6;
+  }
+
+  [data-component="20_CharacterPanel"] .char-bio-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  [data-component="20_CharacterPanel"] .char-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0d1214;
+    border: 1px solid var(--char-cyan);
+    color: var(--char-cyan);
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  [data-component="20_CharacterPanel"] .char-bio-info h3 {
+    margin: 0 0 4px;
+    font: 700 17px/1.2 Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="20_CharacterPanel"] .char-role-badge {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: .12em;
+    color: var(--char-amber);
+  }
+
+  [data-component="20_CharacterPanel"] .char-context-text {
+    margin: 0;
+    color: var(--char-muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="20_CharacterPanel"] .claims-section-title {
+    font-size: 10px;
+    letter-spacing: .12em;
+    color: var(--char-cyan);
+    text-transform: uppercase;
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+
+  [data-component="20_CharacterPanel"] .claims-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Balões de Diálogo Interativos */
+  [data-component="20_CharacterPanel"] .dialogue-bubble {
+    position: relative;
+    background: #0e1416;
+    border: 1px solid #253338;
+    border-left: 3px solid var(--char-cyan);
+    border-radius: 4px;
+    padding: 12px 14px;
+    text-align: left;
+    color: #dbe3e6;
+    font-family: Georgia, serif;
+    font-size: 13px;
+    line-height: 1.5;
+    cursor: pointer;
+    transition: all .15s ease-out;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  [data-component="20_CharacterPanel"] .dialogue-bubble::before {
+    content: "“";
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    font-size: 20px;
+    color: rgba(104, 212, 208, 0.25);
+    font-family: Georgia, serif;
+  }
+
+  [data-component="20_CharacterPanel"] .dialogue-bubble:hover {
+    background: #172124;
+    border-color: var(--char-cyan);
+    transform: translateX(4px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  }
+
+  [data-component="20_CharacterPanel"] .dialogue-bubble:focus-visible {
+    outline: 2px solid var(--char-amber);
+    outline-offset: 2px;
+    background: #172124;
+  }
+
+  [data-component="20_CharacterPanel"] .dialogue-bubble:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+    transform: none;
+  }
+
+  [data-component="20_CharacterPanel"] .bubble-text {
+    display: block;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+  }
+
+  [data-component="20_CharacterPanel"] .bubble-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--char-amber);
+    letter-spacing: .08em;
+  }
+
+  [data-component="20_CharacterPanel"] .dialogue-bubble:hover .bubble-action {
+    color: var(--char-cyan);
+  }
+
+  [data-component="20_CharacterPanel"] .bubble-icon {
+    font-size: 12px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="20_CharacterPanel"] .character-card,
+    [data-component="20_CharacterPanel"] .dialogue-bubble {
+      transition: none;
+    }
+
+    [data-component="20_CharacterPanel"] .dialogue-bubble:hover {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="20_CharacterPanel"]');
+  if (!root) return;
+
+  var content = root.querySelector('[data-slot="content"]');
+  var loading = root.querySelector('[data-state="loading"]');
+  var empty = root.querySelector('[data-state="empty"]');
+  var error = root.querySelector('[data-state="error"]');
+  var retry = root.querySelector('#char-panel-retry');
+  var loadSerial = 0;
+
+  var avatars = {
+    'anonymous-source': '🕵️',
+    'chief-editor': '🗞️',
+    'lobbyist': '💼',
+    'public-figure': '🏛️'
+  };
+
+  function setBusy(isBusy) {
+    root.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    if (loading) loading.hidden = !isBusy;
+    if (retry && isBusy) retry.hidden = true;
+  }
+
+  function clearError() {
+    if (error) error.hidden = true;
+    if (retry) retry.hidden = true;
+  }
+
+  function showError(message, canRetry) {
+    setBusy(false);
+    if (empty) empty.hidden = true;
+    if (error) {
+      error.textContent = message;
+      error.hidden = false;
+      error.focus();
+    }
+    if (retry) retry.hidden = !canRetry;
+  }
+
+  function normalizeCharacters(data) {
+    if (!Array.isArray(data)) return null;
+    return data.filter(function(character) {
+      return character && typeof character === 'object' && !Array.isArray(character);
+    });
+  }
+
+  function renderCharacters(characters) {
+    if (!content) return;
+    content.textContent = '';
+
+    if (!characters.length) {
+      if (empty) empty.hidden = false;
+      return;
+    }
+    if (empty) empty.hidden = true;
+
+    characters.forEach(function(character, characterIndex) {
+      character = character || {};
+      var characterId = String(character.id || '');
+      var characterName = String(character.name || 'Fonte sem identificação');
+      var nameId = 'character-name-' + characterIndex;
+      var contextId = 'character-context-' + characterIndex;
+      var card = document.createElement('article');
+      card.className = 'character-card';
+      card.setAttribute('data-character-id', characterId);
+      card.setAttribute('aria-labelledby', nameId);
+      card.setAttribute('aria-describedby', contextId);
+
+      // Cabeçalho com Avatar e Identificação
+      var header = document.createElement('div');
+      header.className = 'char-bio-header';
+
+      var avatar = document.createElement('div');
+      avatar.className = 'char-avatar';
+      avatar.setAttribute('aria-hidden', 'true');
+      avatar.textContent = avatars[characterId] || '👤';
+      header.appendChild(avatar);
+
+      var info = document.createElement('div');
+      info.className = 'char-bio-info';
+
+      var badge = document.createElement('span');
+      badge.className = 'char-role-badge';
+      badge.textContent = String(character.role || 'FONTE DE INVESTIGAÇÃO');
+      info.appendChild(badge);
+
+      var name = document.createElement('h3');
+      name.id = nameId;
+      name.textContent = characterName;
+      info.appendChild(name);
+
+      header.appendChild(info);
+      card.appendChild(header);
+
+      // Contexto
+      var ctx = document.createElement('p');
+      ctx.className = 'char-context-text';
+      ctx.id = contextId;
+      ctx.textContent = String(character.context || 'Contexto da fonte não informado.');
+      card.appendChild(ctx);
+
+      var nature = document.createElement('p');
+      nature.className = 'char-context-text';
+      nature.textContent = String(character.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA — REVISÃO DOCENTE');
+      card.appendChild(nature);
+
+      // Seção de Alegações em Balões de Diálogo
+      var claimsTitle = document.createElement('h4');
+      claimsTitle.className = 'claims-section-title';
+      claimsTitle.id = 'claims-title-' + characterIndex;
+      claimsTitle.textContent = 'Alegações para verificação (não são fatos confirmados):';
+      card.appendChild(claimsTitle);
+
+      var claimsList = document.createElement('div');
+      claimsList.className = 'claims-list';
+      claimsList.setAttribute('role', 'list');
+      claimsList.setAttribute('aria-labelledby', claimsTitle.id);
+
+      var claims = Array.isArray(character.claims) ? character.claims : [];
+      if (!claims.length) {
+        var noClaimsItem = document.createElement('div');
+        noClaimsItem.setAttribute('role', 'listitem');
+        var noClaims = document.createElement('p');
+        noClaims.className = 'char-context-text';
+        noClaims.textContent = 'Nenhuma alegação disponível para esta fonte.';
+        noClaimsItem.appendChild(noClaims);
+        claimsList.appendChild(noClaimsItem);
+      }
+
+      claims.forEach(function(claim) {
+        claim = claim || {};
+        var claimId = String(claim.id || '');
+        var claimText = String(claim.text || 'Alegação sem texto.');
+        var claimItem = document.createElement('div');
+        claimItem.setAttribute('role', 'listitem');
+        var bubble = document.createElement('button');
+        bubble.type = 'button';
+        bubble.className = 'dialogue-bubble';
+        bubble.setAttribute('aria-label', 'Confrontar alegação de ' + characterName + ': ' + claimText);
+        if (!claimId) {
+          bubble.disabled = true;
+          bubble.title = 'Alegação sem identificador para confronto.';
+        }
+
+        var textSpan = document.createElement('span');
+        textSpan.className = 'bubble-text';
+        textSpan.textContent = claimText;
+        bubble.appendChild(textSpan);
+
+        var actionSpan = document.createElement('span');
+        actionSpan.className = 'bubble-action';
+        var actionIcon = document.createElement('span');
+        actionIcon.className = 'bubble-icon';
+        actionIcon.setAttribute('aria-hidden', 'true');
+        actionIcon.textContent = '⇄';
+        actionSpan.appendChild(actionIcon);
+        actionSpan.appendChild(document.createTextNode(' CONFRONTAR COM EVIDÊNCIAS'));
+        bubble.appendChild(actionSpan);
+
+        // Clique no balão de fala abre a gaveta de confronto de fontes
+        bubble.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (!claimId) return;
+          window.dispatchEvent(new CustomEvent('sourcecheck:open', {
+            detail: {
+              characterId: characterId,
+              characterName: characterName,
+              claimId: claimId,
+              claimText: claimText
+            }
+          }));
+        });
+
+        claimItem.appendChild(bubble);
+        claimsList.appendChild(claimItem);
+      });
+
+      card.appendChild(claimsList);
+      content.appendChild(card);
+    });
+  }
+
+  function load() {
+    var requestSerial = ++loadSerial;
+    setBusy(true);
+    clearError();
+    if (empty) empty.hidden = true;
+    if (content) content.textContent = '';
+
+    if (window.google && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (requestSerial !== loadSerial) return;
+          if (!response || !response.ok) {
+            showError('Não foi possível carregar as fontes da investigação.', true);
+            return;
+          }
+          var characters = normalizeCharacters(response.data);
+          if (!characters) {
+            showError('O servidor devolveu um formato de fontes inválido.', true);
+            return;
+          }
+          setBusy(false);
+          renderCharacters(characters);
+        })
+        .withFailureHandler(function() {
+          if (requestSerial !== loadSerial) return;
+          showError('Falha de comunicação com o servidor. Tente novamente.', true);
+        })
+        .getCharacterContexts();
+    } else {
+      showError('Servidor indisponível. Tente novamente quando a conexão estiver pronta.', true);
+    }
+  }
+
+  if (retry) retry.addEventListener('click', load);
+
+  load();
+}());
+</script>

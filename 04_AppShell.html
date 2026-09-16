@@ -1,0 +1,353 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 04_AppShell.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Casca autenticada implementada
+
+  PRINCIPAIS FUNCIONALIDADES
+  Casca autenticada.
+
+  INTEGRAÇÕES
+  Layout do ambiente seguro, cabeçalho, status de sessão e slot de conteúdo.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Casca responsiva com identidade de sessão, navegação e slot de conteúdo.
+-->
+<?!= HtmlService.createHtmlOutputFromFile('00_GlobalStyles').getContent(); ?>
+
+<style>
+  [data-component="04_AppShell"] { min-height: 100vh; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "Courier New", monospace; }
+  [data-component="04_AppShell"] .shell-bar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 24px; border-bottom: 1px solid var(--color-slate-gray); background: var(--color-dark-graphite); }
+  [data-component="04_AppShell"] .brand { color: var(--color-neon-cyan); font-size: 11px; letter-spacing: .12em; }
+  
+  /* Sincronização em tempo real na casca */
+  [data-component="04_AppShell"] .shell-sync-monitor { display: flex; align-items: center; gap: 10px; font-size: 11px; }
+  [data-component="04_AppShell"] .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--color-neon-cyan); box-shadow: 0 0 10px var(--color-neon-cyan); transition: all .25s ease; }
+  [data-component="04_AppShell"] .status-dot.saving { background: var(--color-warning-amber); box-shadow: 0 0 10px var(--color-warning-amber); animation: pulse-amber-dot .8s infinite alternate; }
+  [data-component="04_AppShell"] .status-dot.saved { background: var(--color-neon-cyan); box-shadow: 0 0 10px var(--color-neon-cyan); }
+  [data-component="04_AppShell"] .status-dot.error { background: var(--color-coral-red); box-shadow: 0 0 10px var(--color-coral-red); animation: pulse-red-dot .6s infinite alternate; }
+  @keyframes pulse-amber-dot { from { opacity: 1; transform: scale(1); } to { opacity: .3; transform: scale(1.4); } }
+  @keyframes pulse-red-dot { from { opacity: 1; transform: scale(1); } to { opacity: .3; transform: scale(1.4); } }
+
+  [data-component="04_AppShell"] .identity { color: #9eaaae; font-size: 10px; text-align: right; }
+  [data-component="04_AppShell"] .identity strong { display: block; margin-top: 4px; color: var(--color-warning-amber); font-weight: 400; }
+  [data-component="04_AppShell"] .shell-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - 61px); }
+  [data-component="04_AppShell"] nav { padding: 22px 14px; border-right: 1px solid var(--color-slate-gray); }
+  [data-component="04_AppShell"] nav a { display: block; padding: 12px; color: #9eaaae; text-decoration: none; font-size: 11px; }
+  [data-component="04_AppShell"] nav a:hover, [data-component="04_AppShell"] nav a:focus-visible { color: var(--color-light-gray); background: var(--color-charcoal); outline: 2px solid var(--color-warning-amber); outline-offset: -2px; }
+  [data-component="04_AppShell"] nav a[aria-current="page"] { color: var(--color-light-gray); border-left: 2px solid var(--color-neon-cyan); background: var(--color-charcoal); animation: route-pulse 2.4s ease-in-out infinite; }
+  [data-component="04_AppShell"] .content { padding: clamp(24px, 5vw, 64px); }
+  [data-component="04_AppShell"] .content h2 { margin: 0; font: 700 32px Georgia, serif; }
+  [data-component="04_AppShell"] .content p { max-width: 58ch; color: #9eaaae; line-height: 1.6; }
+  [data-component="04_AppShell"] [data-route][hidden] { display: none; }
+  
+  /* Transições suaves de cross-fade entre rotas (Prompt 77) */
+  [data-component="04_AppShell"] .content {
+    padding: clamp(24px, 5vw, 64px);
+    position: relative;
+  }
+  
+  [data-component="04_AppShell"] [data-route] {
+    opacity: 1;
+    transition: opacity 0.18s ease-in-out;
+  }
+  
+  [data-component="04_AppShell"] [data-route].route-fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  [data-component="04_AppShell"] [data-route].route-fade-in {
+    animation: route-fade-in 0.18s ease-in-out forwards;
+  }
+  
+  @keyframes route-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @media (max-width: 650px) { [data-component="04_AppShell"] .shell-body { grid-template-columns: 1fr; } [data-component="04_AppShell"] nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--color-slate-gray); } }
+  @keyframes route-pulse { 0%, 100% { box-shadow: inset 0 0 0 rgba(104,212,208,0); } 50% { box-shadow: inset 0 0 12px rgba(104,212,208,.18); } }
+</style>
+<section data-component="04_AppShell" aria-labelledby="shell-title">
+  <header class="shell-bar">
+    <div class="brand">O TERMINAL / AMBIENTE SEGURO</div>
+    <!-- Monitor Ativo de Sincronização em Tempo Real (Prompt 64) -->
+    <div class="shell-sync-monitor" role="status" aria-live="polite">
+      <span class="status-dot saved" aria-hidden="true"></span>
+      <span id="shell-sync-text">TODAS AS RESPOSTAS SALVAS</span>
+      <small id="shell-sync-time" style="color: var(--color-medium-gray); font-size: 10px;">(agora)</small>
+    </div>
+    <div class="identity">SESSÃO ATIVA<strong id="shell-user">ANALISTA // 0047</strong></div>
+  </header>
+  <div class="shell-body">
+    <nav aria-label="Navegação autenticada">
+      <a href="#terminal">01 / Terminal</a>
+      <a href="#evidence">02 / Evidências</a>
+      <a href="#phases">03 / Fases</a>
+      <a href="#report">04 / Reportagem</a>
+      <a href="#help">05 / Ajuda</a>
+      <a href="#scene">Cena Ativa</a>
+      <a href="#teacher-login">Login Professor</a>
+      <a href="#teacher-dashboard">Dashboard Professor</a>
+    </nav>
+    <main class="content" id="app-content">
+      <h2 id="shell-title">Casca autenticada</h2>
+      <p>O ambiente está pronto. Escolha um módulo para continuar sua investigação.</p>
+      <p data-state="loading" hidden role="status">Carregando dados do terminal…</p>
+      <p data-state="error" hidden role="alert">Não foi possível concluir a operação.</p>
+      
+      <!-- Slots de rota -->
+      <div data-route="terminal" data-slot="content"></div>
+      <div data-route="evidence" data-slot="content" hidden></div>
+      <div data-route="phases" data-slot="content" hidden></div>
+      <div data-route="report" data-slot="content" hidden></div>
+      <div data-route="help" data-slot="content" hidden></div>
+      <div data-route="scene" data-slot="content" hidden></div>
+      <div data-route="teacher-login" data-slot="content" hidden></div>
+      <div data-route="teacher-dashboard" data-slot="content" hidden></div>
+    </main>
+  </div>
+</section>
+<script>
+  (function() {
+    var root = document.querySelector('[data-component="04_AppShell"]');
+    if (!root) return;
+    
+    var links = root.querySelectorAll('nav a');
+    var contentMain = root.querySelector('#app-content');
+    var routeSlots = root.querySelectorAll('[data-route]');
+    var currentRoute = null;
+    var routeStateCache = {}; // Cache para retenção de estado
+    
+    // Rotas válidas suportadas
+    var validRoutes = ['terminal', 'evidence', 'phases', 'report', 'help', 'scene', 'teacher-login', 'teacher-dashboard'];
+    
+    /**
+     * Atualiza a rota com transição suave cross-fade
+     * Implementa Prompt 77: transição 0.18s, scroll restoration e retenção de estado
+     */
+    function updateRoute() {
+      var hash = window.location.hash.replace(/^#/, '');
+      var route = hash || 'terminal';
+      
+      // Valida rota
+      if (validRoutes.indexOf(route) === -1) {
+        route = 'terminal';
+        window.location.hash = route;
+        return;
+      }
+      
+      // Evita reprocessar a mesma rota
+      if (currentRoute === route) return;
+      
+      var oldRoute = currentRoute;
+      currentRoute = route;
+      
+      // 1. Salva estado da rota anterior (retenção de estado - Prompt 77.3)
+      if (oldRoute) {
+        saveRouteState(oldRoute);
+      }
+      
+      // 2. Inicia transição fade-out
+      routeSlots.forEach(function(slot) {
+        if (!slot.hidden && slot.dataset.route !== route) {
+          slot.classList.add('route-fade-out');
+        }
+      });
+      
+      // 3. Aguarda transição e troca as rotas
+      setTimeout(function() {
+        routeSlots.forEach(function(slot) {
+          var isActive = slot.dataset.route === route;
+          
+          if (isActive) {
+            slot.hidden = false;
+            slot.classList.remove('route-fade-out');
+            slot.classList.add('route-fade-in');
+            
+            // Restaura estado se existir (retenção de estado - Prompt 77.3)
+            restoreRouteState(route, slot);
+            
+            // Remove classe de animação após completar
+            setTimeout(function() {
+              slot.classList.remove('route-fade-in');
+            }, 180);
+          } else {
+            slot.hidden = true;
+            slot.classList.remove('route-fade-out', 'route-fade-in');
+          }
+        });
+        
+        // 2. Scroll restoration automático para o topo (Prompt 77.2)
+        if (contentMain) {
+          contentMain.scrollTop = 0;
+        }
+        window.scrollTo(0, 0);
+        
+      }, 180); // Duração do fade-out (0.18s)
+      
+      // 4. Atualiza aria-current nos links de navegação (Prompt 77.4)
+      links.forEach(function(link) {
+        var href = link.getAttribute('href');
+        if (href === '#' + route) {
+          link.setAttribute('aria-current', 'page');
+        } else {
+          link.removeAttribute('aria-current');
+        }
+      });
+      
+      // Dispara evento customizado para outros componentes
+      window.dispatchEvent(new CustomEvent('route:changed', { 
+        detail: { route: route, oldRoute: oldRoute } 
+      }));
+    }
+    
+    /**
+     * Salva estado da rota atual para retenção (Prompt 77.3)
+     */
+    function saveRouteState(route) {
+      var slot = root.querySelector('[data-route="' + route + '"]');
+      if (!slot) return;
+      
+      // Salva valores de inputs, textareas e selects
+      var inputs = slot.querySelectorAll('input, textarea, select');
+      var state = {};
+      
+      inputs.forEach(function(input) {
+        if (input.id || input.name) {
+          var key = input.id || input.name;
+          
+          if (input.type === 'checkbox' || input.type === 'radio') {
+            state[key] = input.checked;
+          } else {
+            state[key] = input.value;
+          }
+        }
+      });
+      
+      // Salva scroll position específica do slot
+      if (slot.scrollTop > 0) {
+        state._scrollTop = slot.scrollTop;
+      }
+      
+      routeStateCache[route] = state;
+    }
+    
+    /**
+     * Restaura estado da rota (Prompt 77.3)
+     * Exemplo: texto rascunhado em #report não é perdido ao ir para #evidence
+     */
+    function restoreRouteState(route, slot) {
+      var state = routeStateCache[route];
+      if (!state) return;
+      
+      // Restaura valores salvos
+      Object.keys(state).forEach(function(key) {
+        if (key === '_scrollTop') return;
+        
+        var input = slot.querySelector('#' + key) || slot.querySelector('[name="' + key + '"]');
+        if (!input) return;
+        
+        if (input.type === 'checkbox' || input.type === 'radio') {
+          input.checked = state[key];
+        } else {
+          input.value = state[key];
+        }
+      });
+      
+      // Restaura scroll position
+      if (state._scrollTop) {
+        setTimeout(function() {
+          slot.scrollTop = state._scrollTop;
+        }, 50);
+      }
+    }
+    
+    // Intercepta clicks em links de navegação para transição suave
+    links.forEach(function(link) {
+      link.addEventListener('click', function(event) {
+        event.preventDefault();
+        var href = link.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          window.location.hash = href.substring(1);
+        }
+      });
+    });
+    
+    // Listener para mudanças de hash (botões avançar/voltar do navegador - Prompt 77.1)
+    window.addEventListener('hashchange', updateRoute);
+    
+    // Listener para popstate (suporte completo ao histórico - Prompt 77.1)
+    window.addEventListener('popstate', updateRoute);
+    
+    // Inicializa rota atual
+    updateRoute();
+
+    // Sincronização ativa em tempo real
+    var dot = root.querySelector('.status-dot');
+    var textEl = root.querySelector('#shell-sync-text');
+    var timeEl = root.querySelector('#shell-sync-time');
+
+    function updateSyncDisplay(state) {
+      if (!dot || !textEl) return;
+      if (state === 'saving') {
+        dot.className = 'status-dot saving';
+        textEl.textContent = 'GRAVANDO DADOS NO SERVIDOR...';
+        if (timeEl) timeEl.textContent = '(aguarde)';
+      } else if (state === 'saved') {
+        dot.className = 'status-dot saved';
+        textEl.textContent = 'TODAS AS RESPOSTAS SALVAS';
+        if (timeEl) timeEl.textContent = '(' + new Date().toLocaleTimeString('pt-BR') + ')';
+      } else if (state === 'error') {
+        dot.className = 'status-dot error';
+        textEl.textContent = 'MODO LOCAL - TENTANDO RECONECTAR...';
+        if (timeEl) timeEl.textContent = '(tentando em 5s)';
+      }
+    }
+
+    window.addEventListener('sync:start', function() { updateSyncDisplay('saving'); });
+    window.addEventListener('sync:success', function() { updateSyncDisplay('saved'); });
+    window.addEventListener('sync:error', function() { updateSyncDisplay('error'); });
+    
+    // Auto-save periódico do estado atual (a cada 30s)
+    setInterval(function() {
+      if (currentRoute) {
+        saveRouteState(currentRoute);
+      }
+    }, 30000);
+    
+    // Salva estado antes de sair da página
+    window.addEventListener('beforeunload', function() {
+      if (currentRoute) {
+        saveRouteState(currentRoute);
+      }
+    });
+  }());
+</script>

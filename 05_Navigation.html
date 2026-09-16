@@ -1,0 +1,48 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 05_Navigation.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Stub de tela e contrato inicial
+
+  PRINCIPAIS FUNCIONALIDADES
+  Navegação lateral.
+
+  INTEGRAÇÕES
+  Menu entre terminal, evidências, progresso, reportagem e ajuda.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO SCAFFOLD
+  O markup abaixo valida a composição e os estados mínimos da tela.
+  Substituí-lo por uma implementação produtiva exige teste de fluxo, teclado e responsividade.
+-->
+<section data-component="05_Navigation">
+  <h2>Navegação lateral</h2>
+  <nav aria-label="Navegação principal"><a href="#terminal">01 / Terminal</a><a href="#evidence">02 / Evidências</a><a href="#phases">03 / Fases</a><a href="#report">04 / Reportagem</a><a href="#help">05 / Ajuda</a></nav>
+</section>
+<style>[data-component="05_Navigation"] { padding: 16px; color: var(--color-light-gray); background: var(--color-deep-shadow); font-family: "Courier New", monospace; } [data-component="05_Navigation"] nav { display: grid; gap: 6px; } [data-component="05_Navigation"] a { padding: 11px; color: #9eaaae; text-decoration: none; border-left: 2px solid transparent; } [data-component="05_Navigation"] a[aria-current="page"], [data-component="05_Navigation"] a:focus-visible { color: var(--color-light-gray); border-left-color: var(--color-neon-cyan); background: var(--color-dark-graphite); outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }</style>
+<script>(function() { var root = document.querySelector('[data-component="05_Navigation"]'); if (!root) return; var links = root.querySelectorAll('nav a'); function update() { var route = window.location.hash || '#terminal'; links.forEach(function(link) { if (link.getAttribute('href') === route) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); }); } links.forEach(function(link) { link.addEventListener('keydown', function(event) { if (event.key === ' ') { event.preventDefault(); link.click(); } }); }); window.addEventListener('hashchange', update); update(); }());</script>

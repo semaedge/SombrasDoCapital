@@ -1,0 +1,271 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 15_EvidenceDetail.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Detalhe acessível de evidência
+
+  PRINCIPAIS FUNCIONALIDADES
+  Leitura ampliada dos metadados de uma evidência e encaminhamento para o documento
+  ou áudio correspondente.
+
+  CONTRATO DE FRONTEND
+  - Recebe `evidence:open` com o ID da evidência.
+  - Consulta somente `getEvidenceDetail` e insere dados remotos com textContent.
+  - Mantém sessão, foco, carregamento, erro e retentativa visíveis.
+  - Não armazena senha, token ou dados pessoais no DOM.
+-->
+<section data-component="15_EvidenceDetail" aria-labelledby="evidence-detail-heading" aria-describedby="evidence-detail-status" aria-busy="false">
+  <h2 id="evidence-detail-heading">Detalhe da evidência</h2>
+  <p data-state="loading" id="evidence-detail-loading" hidden role="status" aria-live="polite" aria-atomic="true">Carregando evidência…</p>
+  <p data-state="error" id="evidence-detail-status" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível concluir a operação.</p>
+  <button type="button" id="evidence-detail-retry" class="retry-button" hidden>TENTAR NOVAMENTE</button>
+
+  <dialog class="evidence-dialog" id="evidence-detail-dialog" aria-labelledby="evidence-detail-title" aria-describedby="evidence-detail-copy">
+    <div class="dialog-shell">
+      <header class="dialog-header">
+        <div>
+          <span class="dialog-kicker">EVIDÊNCIA // DETALHE</span>
+          <h3 id="evidence-detail-title">Evidência investigativa</h3>
+        </div>
+        <button type="button" class="close-button" id="evidence-detail-close" aria-label="Fechar detalhe da evidência">FECHAR</button>
+      </header>
+      <div data-slot="content" id="evidence-detail-copy" class="detail-content" aria-live="polite" tabindex="-1">
+        <p class="detail-placeholder">Selecione uma evidência no quadro para abrir seus dados.</p>
+      </div>
+    </div>
+  </dialog>
+</section>
+
+<style>
+  [data-component="15_EvidenceDetail"] { color: var(--color-light-gray); background: var(--color-deep-shadow); padding: 18px; font-family: "Courier New", monospace; }
+  [data-component="15_EvidenceDetail"] h2 { margin: 0; font: 700 18px/1.2 Georgia, serif; }
+  [data-component="15_EvidenceDetail"] .evidence-dialog { width: min(720px, calc(100vw - 28px)); max-width: 720px; max-height: calc(100vh - 28px); padding: 0; border: 1px solid var(--color-neon-cyan); color: var(--color-light-gray); background: var(--color-dark-graphite); box-shadow: 0 18px 50px rgba(0,0,0,.65); }
+  [data-component="15_EvidenceDetail"] .evidence-dialog::backdrop { background: rgba(7, 11, 12, .86); }
+  [data-component="15_EvidenceDetail"] .dialog-shell { max-height: calc(100vh - 28px); overflow: auto; }
+  [data-component="15_EvidenceDetail"] .dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px; border-bottom: 1px solid var(--color-slate-gray); background: #101718; }
+  [data-component="15_EvidenceDetail"] .dialog-kicker { color: var(--color-warning-amber); font-size: 10px; letter-spacing: .12em; }
+  [data-component="15_EvidenceDetail"] h3 { margin: 8px 0 0; font: 700 25px/1.15 Georgia, serif; color: #fff; }
+  [data-component="15_EvidenceDetail"] .close-button, [data-component="15_EvidenceDetail"] .action-button { padding: 9px 12px; border: 1px solid var(--color-neon-cyan); color: var(--color-neon-cyan); background: transparent; font: 700 10px "Courier New", monospace; cursor: pointer; white-space: nowrap; }
+  [data-component="15_EvidenceDetail"] .close-button:hover, [data-component="15_EvidenceDetail"] .close-button:focus-visible, [data-component="15_EvidenceDetail"] .action-button:hover, [data-component="15_EvidenceDetail"] .action-button:focus-visible { color: #071011; background: var(--color-neon-cyan); outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="15_EvidenceDetail"] .detail-content { padding: 20px; }
+  [data-component="15_EvidenceDetail"] .detail-placeholder { margin: 0; color: #9eaaae; font-size: 11px; }
+  [data-component="15_EvidenceDetail"] .nature-label { margin: 0 0 16px; padding: 10px 12px; border-left: 3px solid var(--color-warning-amber); color: var(--color-warning-amber); font-size: 11px; letter-spacing: .06em; }
+  [data-component="15_EvidenceDetail"] .detail-note, [data-component="15_EvidenceDetail"] .detail-provenance, [data-component="15_EvidenceDetail"] .detail-objective { margin: 16px 0 0; color: #b9c3c5; font-size: 11px; line-height: 1.6; }
+  [data-component="15_EvidenceDetail"] .detail-provenance { padding-left: 12px; border-left: 2px solid var(--color-neon-cyan); }
+  [data-component="15_EvidenceDetail"] .detail-meta { display: grid; gap: 9px; margin: 0; }
+  [data-component="15_EvidenceDetail"] .detail-meta div { display: grid; grid-template-columns: minmax(92px, .3fr) 1fr; gap: 12px; padding-bottom: 9px; border-bottom: 1px solid rgba(158,170,174,.2); }
+  [data-component="15_EvidenceDetail"] dt { color: #9eaaae; font-size: 10px; }
+  [data-component="15_EvidenceDetail"] dd { margin: 0; color: #d5dddf; font-size: 11px; line-height: 1.45; }
+  [data-component="15_EvidenceDetail"] .detail-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 20px; }
+  [data-component="15_EvidenceDetail"] .action-button { color: #071011; background: var(--color-neon-cyan); }
+  [data-component="15_EvidenceDetail"] .retry-button { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--color-neon-cyan); color: var(--color-neon-cyan); background: transparent; font: 700 10px "Courier New", monospace; cursor: pointer; }
+  [data-component="15_EvidenceDetail"] .retry-button:hover, [data-component="15_EvidenceDetail"] .retry-button:focus-visible { color: #071011; background: var(--color-neon-cyan); outline: 2px solid var(--color-warning-amber); outline-offset: 2px; }
+  [data-component="15_EvidenceDetail"] [data-state="loading"] { color: #9eaaae; font-size: 11px; }
+  [data-component="15_EvidenceDetail"] [data-state="error"] { margin: 14px 0 0; padding: 10px; border-left: 2px solid var(--color-coral-red); color: #f0aaa2; font-size: 11px; line-height: 1.5; }
+  @media (max-width: 540px) { [data-component="15_EvidenceDetail"] .dialog-header { flex-direction: column; } [data-component="15_EvidenceDetail"] .detail-meta div { grid-template-columns: 1fr; gap: 3px; } }
+</style>
+
+<script>(function() {
+  var root = document.querySelector('[data-component="15_EvidenceDetail"]');
+  if (!root) return;
+
+  var dialog = root.querySelector('#evidence-detail-dialog');
+  var closeButton = root.querySelector('#evidence-detail-close');
+  var content = root.querySelector('[data-slot="content"]');
+  var loading = root.querySelector('[data-state="loading"]');
+  var error = root.querySelector('[data-state="error"]');
+  var retry = root.querySelector('#evidence-detail-retry');
+  var currentEvidenceId = '';
+  var lastFocusedElement = null;
+  var requestSerial = 0;
+
+  function setBusy(busy) {
+    root.setAttribute('aria-busy', busy ? 'true' : 'false');
+    if (loading) loading.hidden = !busy;
+  }
+
+  function restoreUserId() {
+    if (window.currentUserId) return String(window.currentUserId);
+    try {
+      var saved = JSON.parse(localStorage.getItem('sombras.session') || 'null');
+      if (!saved || !saved.user || !saved.user.id) return '';
+      window.currentUser = saved.user;
+      window.currentUserId = String(saved.user.id);
+      return window.currentUserId;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function showError(message) {
+    setBusy(false);
+    if (dialog && dialog.open) closeDetail(false);
+    if (error) {
+      error.textContent = message || 'Não foi possível carregar a evidência.';
+      error.hidden = false;
+      try { error.focus(); } catch (e) {}
+    }
+    if (retry) retry.hidden = !currentEvidenceId;
+  }
+
+  function clearError() {
+    if (error) error.hidden = true;
+    if (retry) retry.hidden = true;
+  }
+
+  function openDialog() {
+    if (!dialog) return;
+    if (typeof dialog.showModal === 'function') {
+      try {
+        if (!dialog.open) dialog.showModal();
+      } catch (e) {
+        dialog.setAttribute('open', '');
+      }
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  function closeDetail(restoreFocus) {
+    if (dialog) {
+      if (typeof dialog.close === 'function') {
+        try {
+          if (dialog.open) dialog.close();
+        } catch (e) {
+          dialog.removeAttribute('open');
+        }
+      } else {
+        dialog.removeAttribute('open');
+      }
+    }
+    if (restoreFocus !== false && lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      try { lastFocusedElement.focus(); } catch (e) {}
+    }
+    window.dispatchEvent(new CustomEvent('evidence:close', { detail: currentEvidenceId }));
+  }
+
+  function renderDetail(item, evidenceId) {
+    if (!item || typeof item !== 'object' || !item.title) {
+      showError('A evidência retornou dados incompletos.');
+      return;
+    }
+    if (!content) return;
+    content.textContent = '';
+
+    var nature = document.createElement('p');
+    nature.className = 'nature-label';
+    nature.textContent = item.contentNatureLabel || 'NATUREZA NÃO CLASSIFICADA — REVISÃO DOCENTE';
+    content.appendChild(nature);
+
+    var meta = document.createElement('dl');
+    meta.className = 'detail-meta';
+    [['Tipo', item.type || item.format || 'não informado'], ['Origem', item.source || 'Origem não informada'], ['Confiabilidade', item.reliability || 'não classificada'], ['Fase', item.phase || 'não informada']].forEach(function(pair) {
+      var row = document.createElement('div');
+      var label = document.createElement('dt'); label.textContent = pair[0];
+      var value = document.createElement('dd'); value.textContent = String(pair[1]);
+      row.appendChild(label); row.appendChild(value); meta.appendChild(row);
+    });
+    content.appendChild(meta);
+
+    var note = document.createElement('p');
+    note.className = 'detail-note';
+    note.textContent = item.natureNote || 'Natureza do conteúdo não informada; requer revisão docente.';
+    content.appendChild(note);
+
+    var provenance = [item.sourceTitle, item.sourceOrganization, item.sourceVersion ? 'Versão: ' + item.sourceVersion : '', item.sourceUrl ? 'URL: ' + item.sourceUrl : '', item.accessedAt ? 'Acesso: ' + item.accessedAt : ''].filter(Boolean).join(' · ');
+    if (provenance) {
+      var provenanceEl = document.createElement('p');
+      provenanceEl.className = 'detail-provenance';
+      provenanceEl.textContent = 'Proveniência: ' + provenance;
+      content.appendChild(provenanceEl);
+    }
+    if (item.ageBand || item.pedagogicalObjective) {
+      var objective = document.createElement('p');
+      objective.className = 'detail-objective';
+      objective.textContent = (item.ageBand ? 'Faixa de uso: ' + item.ageBand : '') + (item.ageBand && item.pedagogicalObjective ? ' · ' : '') + (item.pedagogicalObjective ? 'Objetivo pedagógico: ' + item.pedagogicalObjective : '');
+      content.appendChild(objective);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'detail-actions';
+    var type = String(item.type || item.format || '').toLowerCase();
+    if (type === 'document' || type === 'spreadsheet') {
+      var documentButton = document.createElement('button');
+      documentButton.type = 'button'; documentButton.className = 'action-button'; documentButton.textContent = 'ABRIR NO LEITOR';
+      documentButton.addEventListener('click', function() { closeDetail(true); window.dispatchEvent(new CustomEvent('document:open', { detail: String(item.id || evidenceId) })); });
+      actions.appendChild(documentButton);
+    }
+    if (type === 'audio') {
+      var audioButton = document.createElement('button');
+      audioButton.type = 'button'; audioButton.className = 'action-button'; audioButton.textContent = 'ABRIR PLAYER DE ÁUDIO';
+      audioButton.addEventListener('click', function() { closeDetail(true); window.dispatchEvent(new CustomEvent('audio:open', { detail: String(item.id || evidenceId) })); });
+      actions.appendChild(audioButton);
+    }
+    if (actions.childNodes.length) content.appendChild(actions);
+    setBusy(false);
+    clearError();
+    if (dialog) {
+      dialog.setAttribute('aria-labelledby', 'evidence-detail-title');
+      openDialog();
+      try { closeButton.focus(); } catch (e) {}
+    }
+  }
+
+  function loadDetail(evidenceId, opener) {
+    var id = String(evidenceId || '');
+    if (!id) {
+      currentEvidenceId = '';
+      requestSerial++;
+      showError('Evidência inválida.');
+      return;
+    }
+    currentEvidenceId = id;
+    var serial = ++requestSerial;
+    lastFocusedElement = opener || document.activeElement;
+    var userId = restoreUserId();
+    clearError();
+    setBusy(true);
+    if (content) content.textContent = 'Consultando a evidência…';
+    openDialog();
+    if (!userId) {
+      showError('Sua sessão não está ativa. Entre novamente para consultar a evidência.');
+      return;
+    }
+    if (!window.google || !google.script || !google.script.run) {
+      showError('Servidor indisponível. A evidência não foi sincronizada.');
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (serial !== requestSerial) return;
+        if (!response || !response.ok) {
+          var code = response && response.error && response.error.code;
+          if (code === 'INVALID_EVIDENCE' || code === 'EVIDENCE_NOT_FOUND') {
+            showError(response.error.message);
+          } else {
+            showError(response && response.error && response.error.message || 'Não foi possível carregar a evidência.');
+          }
+          return;
+        }
+        renderDetail(response.data, id);
+      })
+      .withFailureHandler(function() {
+        if (serial === requestSerial) showError('Falha de sincronização. Tente novamente.');
+      })
+      .getEvidenceDetail(userId, id);
+  }
+
+  if (closeButton) closeButton.addEventListener('click', function() { closeDetail(true); });
+  if (retry) retry.addEventListener('click', function() { loadDetail(currentEvidenceId, document.activeElement); });
+  if (dialog) {
+    dialog.addEventListener('cancel', function(event) { event.preventDefault(); closeDetail(true); });
+    dialog.addEventListener('click', function(event) { if (event.target === dialog) closeDetail(true); });
+  }
+  window.addEventListener('evidence:open', function(event) {
+    var detail = event && event.detail;
+    var id = detail && typeof detail === 'object' ? detail.id : detail;
+    loadDetail(id, document.activeElement);
+  });
+  setBusy(false);
+}());</script>

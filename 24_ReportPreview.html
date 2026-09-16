@@ -1,0 +1,881 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 24_ReportPreview.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Prévia editorial com renderização segura e impressão acessível
+
+  PRINCIPAIS FUNCIONALIDADES
+  Prévia da reportagem.
+
+  INTEGRAÇÕES
+  Valida coerência e exibe a versão antes do envio.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva com diagramação editorial, renderização segura,
+  atualização em tempo real e selos de validação probatória.
+-->
+<section data-component="24_ReportPreview" aria-labelledby="preview-main-title" aria-describedby="preview-status" aria-busy="false">
+  <div class="newspaper-page" id="newspaper-page">
+    <!-- Cabeçalho de Imprensa Clássica -->
+    <header class="newspaper-header">
+      <div class="newspaper-topbar">
+        <span>ANO XXXVII · EDIÇÃO EXTRAORDINÁRIA Nº 12.840</span>
+        <span>DISTRIBUIÇÃO PÚBLICA & CONSÓRCIO DE IMPRENSA</span>
+        <span id="preview-current-date">SÃO PAULO / BRASÍLIA</span>
+      </div>
+
+      <div class="masthead">
+        <h2 class="masthead-name" id="preview-main-title">O OBSERVADOR INVESTIGATIVO</h2>
+        <p class="masthead-motto">“A verdade apurada em dados contra as sombras do capital”</p>
+      </div>
+
+      <div class="newspaper-rule-double"></div>
+    </header>
+
+    <!-- Corpo Editorial: Manchete e Colunamento -->
+    <main class="newspaper-body">
+      <!-- Manchete de Capa -->
+      <h1 class="newspaper-headline" id="preview-headline">
+        Manchete em elaboração no assistente de redação...
+      </h1>
+
+      <div class="byline-bar">
+        <span class="byline-author">Reportagem: <strong>Analista Investigativo // Consórcio 07</strong></span>
+        <span class="byline-status" id="preview-readiness-badge">STATUS: RASCUNHO EM COMPOSIÇÃO</span>
+      </div>
+      <p id="preview-status" class="preview-status" role="status" aria-live="polite" aria-atomic="true">A prévia será atualizada enquanto você redige e seleciona as evidências.</p>
+
+      <!-- Layout Editorial em Duas Colunas (Tese + Box Probatório) -->
+      <div class="editorial-grid">
+        <!-- Coluna da Tese Central e Texto da Matéria -->
+        <article class="article-column">
+          <div class="lead-text" id="preview-thesis">
+            <p>A argumentação central e os desdobramentos fáticos da reportagem serão exibidos aqui em tempo real conforme você digita na caixa de redação.</p>
+          </div>
+        </article>
+
+        <!-- Coluna do Dossiê Probatório (Tríade de Evidências) -->
+        <aside class="evidence-column">
+          <div class="evidence-box">
+            <div class="box-header">
+              <span class="box-tag">[ SUSTENTAÇÃO DOCUMENTAL ]</span>
+              <h3 class="box-title">Tríade de Provas da Capa</h3>
+            </div>
+
+            <div class="evidence-items" id="preview-evidence-items" role="list" aria-live="polite" aria-atomic="false">
+              <div class="preview-evidence-slot empty" role="listitem" aria-label="Prova 01 vazia">
+                <span class="slot-badge">PROVA 01</span>
+                <p>Nenhuma evidência vinculada à manchete.</p>
+              </div>
+              <div class="preview-evidence-slot empty" role="listitem" aria-label="Prova 02 vazia">
+                <span class="slot-badge">PROVA 02</span>
+                <p>Nenhuma evidência vinculada à manchete.</p>
+              </div>
+              <div class="preview-evidence-slot empty" role="listitem" aria-label="Prova 03 vazia">
+                <span class="slot-badge">PROVA 03</span>
+                <p>Nenhuma evidência vinculada à manchete.</p>
+              </div>
+            </div>
+
+            <div class="box-footer">
+              <span class="editorial-stamp" id="preview-stamp">AGUARDANDO 3 PROVAS</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <!-- Botão de Impressão (Prompt 79.3) -->
+    <div class="print-action-bar" id="print-action-bar">
+      <button type="button" class="btn-print-edition" id="btn-print-edition" aria-describedby="print-hint">
+        <span aria-hidden="true">📄</span> Imprimir Edição de Capa
+      </button>
+      <span class="print-hint" id="print-hint">Gera versão em papel A4/Tabloide com formatação editorial profissional.</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="24_ReportPreview"] {
+    --np-bg: #f8f6f0;
+    --np-ink: #141718;
+    --np-muted: #555d61;
+    --np-border: #141718;
+    --np-rule: #3a3f42;
+    --np-accent: #8b0000;
+    --np-cyan-accent: #0c6865;
+    padding: 24px;
+    background: #080b0c;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  [data-component="24_ReportPreview"] .newspaper-page {
+    width: 100%;
+    max-width: 960px;
+    background: var(--np-bg);
+    color: var(--np-ink);
+    padding: 36px 42px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  @media (max-width: 768px) {
+    [data-component="24_ReportPreview"] .newspaper-page {
+      padding: 20px 16px;
+    }
+  }
+
+  /* Cabeçalho de Imprensa */
+  [data-component="24_ReportPreview"] .newspaper-topbar {
+    display: flex;
+    justify-content: space-between;
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    font-size: 9px;
+    letter-spacing: .08em;
+    color: var(--np-muted);
+    border-bottom: 1px solid var(--np-rule);
+    padding-bottom: 4px;
+    margin-bottom: 12px;
+  }
+
+  [data-component="24_ReportPreview"] .masthead {
+    text-align: center;
+    margin: 8px 0 12px;
+  }
+
+  [data-component="24_ReportPreview"] .masthead-name {
+    margin: 0;
+    font: 900 clamp(28px, 6vw, 54px)/1.0 "Playfair Display", "Times New Roman", serif;
+    letter-spacing: .04em;
+    color: #0b0d0e;
+    text-transform: uppercase;
+  }
+
+  [data-component="24_ReportPreview"] .masthead-motto {
+    margin: 6px 0 0;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--np-muted);
+  }
+
+  [data-component="24_ReportPreview"] .newspaper-rule-double {
+    border-top: 3px double var(--np-border);
+    margin: 12px 0 18px;
+  }
+
+  /* Manchete de Capa */
+  [data-component="24_ReportPreview"] .newspaper-headline {
+    margin: 0 0 14px;
+    font: 900 clamp(22px, 4.5vw, 38px)/1.15 "Playfair Display", Georgia, serif;
+    color: #000000;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  [data-component="24_ReportPreview"] .byline-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    color: var(--np-muted);
+    border-top: 1px solid var(--np-rule);
+    border-bottom: 1px solid var(--np-rule);
+    padding: 6px 0;
+    margin-bottom: 20px;
+  }
+
+  [data-component="24_ReportPreview"] .byline-status {
+    font-weight: 700;
+    letter-spacing: .06em;
+  }
+
+  [data-component="24_ReportPreview"] .byline-status.ready {
+    color: var(--np-cyan-accent);
+  }
+
+  [data-component="24_ReportPreview"] .preview-status {
+    margin: -10px 0 18px;
+    color: var(--np-muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  /* Grid Editorial */
+  [data-component="24_ReportPreview"] .editorial-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+  }
+
+  @media (max-width: 800px) {
+    [data-component="24_ReportPreview"] .editorial-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Coluna da Tese / Artigo */
+  [data-component="24_ReportPreview"] .article-column {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #1a1e20;
+    text-align: justify;
+  }
+
+  [data-component="24_ReportPreview"] .lead-text p {
+    margin: 0 0 14px;
+    white-space: pre-line;
+  }
+
+  [data-component="24_ReportPreview"] .lead-text p::first-letter {
+    font-size: 42px;
+    line-height: 0.85;
+    float: left;
+    padding-right: 8px;
+    padding-top: 4px;
+    font-weight: 700;
+    font-family: "Playfair Display", Georgia, serif;
+    color: #000000;
+  }
+
+  /* Box Probatório */
+  [data-component="24_ReportPreview"] .evidence-box {
+    background: #f1ede3;
+    border: 1px solid #141718;
+    padding: 18px 16px;
+    box-shadow: 4px 4px 0 #141718;
+    box-sizing: border-box;
+  }
+
+  [data-component="24_ReportPreview"] .box-header {
+    border-bottom: 1px solid #141718;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+
+  [data-component="24_ReportPreview"] .box-tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: #8b0000;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  [data-component="24_ReportPreview"] .box-title {
+    margin: 0;
+    font: 700 16px/1.2 Georgia, serif;
+    color: #000000;
+  }
+
+  [data-component="24_ReportPreview"] .evidence-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  [data-component="24_ReportPreview"] .preview-evidence-slot {
+    background: #ffffff;
+    border: 1px solid #c2bbae;
+    padding: 8px 10px;
+    border-left: 3px solid var(--np-cyan-accent);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  [data-component="24_ReportPreview"] .preview-evidence-slot.empty {
+    border-left-color: #8c989c;
+    background: #f9f8f4;
+    color: #69777c;
+  }
+
+  [data-component="24_ReportPreview"] .slot-badge {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    background: #141718;
+    color: #ffffff;
+    padding: 2px 4px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 4px;
+  }
+
+  [data-component="24_ReportPreview"] .preview-evidence-slot p {
+    margin: 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+  }
+
+  [data-component="24_ReportPreview"] .box-footer {
+    display: flex;
+    justify-content: center;
+    border-top: 1px dashed #141718;
+    padding-top: 10px;
+  }
+
+  [data-component="24_ReportPreview"] .editorial-stamp {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    padding: 4px 10px;
+    border: 2px solid #8b0000;
+    color: #8b0000;
+    text-transform: uppercase;
+    transform: rotate(-2deg);
+    display: inline-block;
+  }
+
+  [data-component="24_ReportPreview"] .editorial-stamp.verified {
+    border-color: var(--np-cyan-accent);
+    color: var(--np-cyan-accent);
+    transform: rotate(-1deg);
+  }
+
+  /* Barra de ação de impressão (Prompt 79.3) */
+  [data-component="24_ReportPreview"] .print-action-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 28px;
+    padding: 20px;
+    background: rgba(21, 26, 29, 0.95);
+    border: 1px solid var(--color-neon-cyan);
+    border-radius: 4px;
+  }
+
+  [data-component="24_ReportPreview"] .btn-print-edition {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    background: var(--color-neon-cyan);
+    color: #071011;
+    border: 1px solid var(--color-neon-cyan);
+    font: 700 13px "IBM Plex Mono", monospace;
+    letter-spacing: .06em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s ease;
+  }
+
+  [data-component="24_ReportPreview"] .btn-print-edition:hover,
+  [data-component="24_ReportPreview"] .btn-print-edition:focus-visible {
+    background: #84eae6;
+    box-shadow: 0 0 16px rgba(104, 212, 208, 0.5);
+    outline: 2px solid var(--color-warning-amber);
+    outline-offset: 2px;
+  }
+
+  [data-component="24_ReportPreview"] .btn-print-edition:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+    box-shadow: none;
+  }
+
+  [data-component="24_ReportPreview"] .print-hint {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    color: var(--color-medium-gray);
+    text-align: center;
+    max-width: 500px;
+    line-height: 1.45;
+  }
+
+  @media (max-width: 560px) {
+    [data-component="24_ReportPreview"] .byline-bar {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 6px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="24_ReportPreview"] .btn-print-edition,
+    [data-component="24_ReportPreview"] .editorial-stamp {
+      transition: none;
+    }
+
+    [data-component="24_ReportPreview"] .editorial-stamp,
+    [data-component="24_ReportPreview"] .editorial-stamp.verified {
+      transform: none;
+    }
+  }
+
+  /* ============================================================
+     PROMPT 79: FOLHA DE ESTILOS @MEDIA PRINT PARA PAPEL A4/TABLOIDE
+     Impressão editorial de alta fidelidade
+     ============================================================ */
+  @media print {
+    /* Remove tudo exceto o jornal */
+    body * {
+      visibility: hidden;
+    }
+
+    [data-component="24_ReportPreview"],
+    [data-component="24_ReportPreview"] * {
+      visibility: visible;
+    }
+
+    [data-component="24_ReportPreview"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      padding: 0;
+      background: #ffffff !important;
+    }
+
+    /* Configuração de página A4/Tabloide */
+    @page {
+      size: A4;
+      margin: 15mm 20mm;
+    }
+
+    /* Fundo branco puro e tipografia preta de alta densidade (Prompt 79.2) */
+    [data-component="24_ReportPreview"] .newspaper-page {
+      width: 100%;
+      max-width: none;
+      background: #ffffff !important;
+      color: #000000 !important;
+      padding: 0;
+      box-shadow: none !important;
+      border-radius: 0;
+      page-break-after: avoid;
+    }
+
+    /* Oculta elementos de sistema (Prompt 79.2) */
+    nav,
+    header.main-header,
+    header.shell-bar,
+    aside.rail,
+    footer,
+    button,
+    .print-action-bar,
+    .print-hint,
+    .preview-status,
+    [data-component="24_ReportPreview"] ~ *,
+    .skip-links,
+    .service-order,
+    .toast-container {
+      display: none !important;
+    }
+
+    /* Cabeçalho de imprensa */
+    [data-component="24_ReportPreview"] .newspaper-topbar {
+      border-bottom: 1px solid #000000;
+      color: #333333;
+      padding-bottom: 4pt;
+      margin-bottom: 8pt;
+    }
+
+    [data-component="24_ReportPreview"] .masthead-name {
+      color: #000000 !important;
+      margin: 6pt 0;
+    }
+
+    [data-component="24_ReportPreview"] .masthead-motto {
+      color: #333333 !important;
+      font-size: 10pt;
+    }
+
+    [data-component="24_ReportPreview"] .newspaper-rule-double {
+      border-top: 2pt double #000000;
+      margin: 8pt 0 12pt;
+    }
+
+    /* Manchete em preto de alta densidade */
+    [data-component="24_ReportPreview"] .newspaper-headline {
+      color: #000000 !important;
+      font-size: 28pt;
+      line-height: 1.2;
+      margin: 0 0 10pt;
+      page-break-after: avoid;
+    }
+
+    [data-component="24_ReportPreview"] .byline-bar {
+      border-top: 1pt solid #000000;
+      border-bottom: 1pt solid #000000;
+      color: #000000 !important;
+      padding: 4pt 0;
+      margin-bottom: 12pt;
+      page-break-after: avoid;
+    }
+
+    [data-component="24_ReportPreview"] .byline-author,
+    [data-component="24_ReportPreview"] .byline-status {
+      color: #000000 !important;
+    }
+
+    /* Layout em duas colunas jornalísticas (Prompt 79.2) */
+    [data-component="24_ReportPreview"] .editorial-grid {
+      display: block;
+      column-count: 2;
+      column-gap: 18pt;
+      column-rule: 1pt solid #cccccc;
+    }
+
+    /* Artigo com justificação e hifenização (Prompt 79.2) */
+    [data-component="24_ReportPreview"] .article-column {
+      color: #000000 !important;
+      font-size: 11pt;
+      line-height: 1.65;
+      text-align: justify;
+      hyphens: auto;
+      -webkit-hyphens: auto;
+      -ms-hyphens: auto;
+      page-break-inside: avoid;
+      break-inside: avoid-column;
+    }
+
+    [data-component="24_ReportPreview"] .lead-text p {
+      margin: 0 0 10pt;
+      color: #000000 !important;
+    }
+
+    /* Capitular (primeira letra grande) */
+    [data-component="24_ReportPreview"] .lead-text p::first-letter {
+      font-size: 36pt;
+      line-height: 0.85;
+      float: left;
+      padding-right: 6pt;
+      padding-top: 3pt;
+      font-weight: 700;
+      color: #000000 !important;
+    }
+
+    /* Box de evidências quebra coluna */
+    [data-component="24_ReportPreview"] .evidence-column {
+      break-inside: avoid-column;
+      page-break-inside: avoid;
+      margin-top: 0;
+    }
+
+    [data-component="24_ReportPreview"] .evidence-box {
+      background: #f5f5f5 !important;
+      border: 2pt solid #000000 !important;
+      padding: 12pt;
+      box-shadow: none !important;
+      page-break-inside: avoid;
+    }
+
+    [data-component="24_ReportPreview"] .box-header {
+      border-bottom: 1pt solid #000000;
+      padding-bottom: 6pt;
+      margin-bottom: 8pt;
+    }
+
+    [data-component="24_ReportPreview"] .box-tag {
+      color: #000000 !important;
+      font-size: 8pt;
+    }
+
+    [data-component="24_ReportPreview"] .box-title {
+      color: #000000 !important;
+      font-size: 12pt;
+    }
+
+    [data-component="24_ReportPreview"] .preview-evidence-slot {
+      background: #ffffff !important;
+      border: 1pt solid #666666 !important;
+      border-left: 2pt solid #000000 !important;
+      padding: 6pt 8pt;
+      font-size: 9pt;
+      page-break-inside: avoid;
+    }
+
+    [data-component="24_ReportPreview"] .preview-evidence-slot.empty {
+      border-left-color: #999999 !important;
+      background: #fafafa !important;
+      color: #666666 !important;
+    }
+
+    [data-component="24_ReportPreview"] .slot-badge {
+      background: #000000 !important;
+      color: #ffffff !important;
+      font-size: 7pt;
+      padding: 2pt 4pt;
+    }
+
+    [data-component="24_ReportPreview"] .preview-evidence-slot p {
+      color: #000000 !important;
+      font-size: 9pt;
+    }
+
+    [data-component="24_ReportPreview"] .box-footer {
+      border-top: 1pt dashed #000000;
+      padding-top: 8pt;
+      margin-top: 8pt;
+    }
+
+    /* Selo de validação probatória (Prompt 79.2) */
+    [data-component="24_ReportPreview"] .editorial-stamp {
+      border: 2pt solid #000000 !important;
+      color: #000000 !important;
+      font-size: 9pt;
+      padding: 3pt 8pt;
+      page-break-inside: avoid;
+    }
+
+    [data-component="24_ReportPreview"] .editorial-stamp.verified {
+      border-color: #000000 !important;
+      color: #000000 !important;
+    }
+
+    /* Carimbo de autenticidade digital no rodapé (Prompt 79.2) */
+    [data-component="24_ReportPreview"] .newspaper-page::after {
+      content: "────────────────────────────────────────────────────────────────" "O TERMINAL: SOMBRAS DO CAPITAL // DOSSIÊ OFICIAL DE INVESTIGAÇÃO" "Documento gerado em: " attr(data-print-date) " | Validação digital: " attr(data-validation-hash) " | © Consórcio 07 // Distribuição Pública";
+      display: block;
+      position: fixed;
+      bottom: 10mm;
+      left: 0;
+      right: 0;
+      padding: 8pt 20mm;
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7pt;
+      color: #666666;
+      text-align: center;
+      line-height: 1.6;
+      white-space: pre-line;
+      border-top: 1pt solid #cccccc;
+      background: #ffffff;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="24_ReportPreview"]');
+  if (!root) return;
+
+  var headlineEl = root.querySelector('#preview-headline');
+  var thesisEl = root.querySelector('#preview-thesis');
+  var evidenceContainer = root.querySelector('#preview-evidence-items');
+  var stampEl = root.querySelector('#preview-stamp');
+  var readinessBadge = root.querySelector('#preview-readiness-badge');
+  var statusEl = root.querySelector('#preview-status');
+  var newspaperPage = root.querySelector('#newspaper-page');
+  var btnPrint = root.querySelector('#btn-print-edition');
+
+  var placeholderHeadline = 'Manchete em elaboração no assistente de redação...';
+  var placeholderThesis = 'A argumentação central e os desdobramentos fáticos da reportagem serão exibidos aqui em tempo real conforme você digita na caixa de redação.';
+  var previewState = { title: '', thesis: '', items: [], ready: false };
+  var printTimer = null;
+
+  function displayText(value, fallback) {
+    if (typeof value === 'string') {
+      var trimmed = value.trim();
+      return trimmed || fallback;
+    }
+    if (typeof value === 'number' && isFinite(value)) return String(value);
+    return fallback;
+  }
+
+  function normalizeItems(value) {
+    if (!Array.isArray(value)) return [];
+    var seen = {};
+    var items = [];
+    value.forEach(function(item, index) {
+      if (!item || typeof item !== 'object' || Array.isArray(item) || items.length >= 3) return;
+      var id = displayText(item.id, '');
+      var key = id || 'item-' + index;
+      if (seen[key]) return;
+      seen[key] = true;
+      items.push({
+        id: id,
+        type: displayText(item.type, 'DOC'),
+        title: displayText(item.title || item.name, 'Evidência sem título'),
+        contentNatureLabel: displayText(item.contentNatureLabel, 'NATUREZA NÃO CLASSIFICADA'),
+        reliability: displayText(item.reliability, 'não classificada')
+      });
+    });
+    return items;
+  }
+
+  function appendLine(parent, value) {
+    parent.appendChild(document.createTextNode(value));
+    parent.appendChild(document.createElement('br'));
+  }
+
+  function renderThesis(thesis) {
+    if (!thesisEl) return;
+    thesisEl.textContent = '';
+    var paragraph = document.createElement('p');
+    paragraph.textContent = thesis || placeholderThesis;
+    thesisEl.appendChild(paragraph);
+    thesisEl.style.opacity = thesis ? '1' : '0.5';
+  }
+
+  function renderEvidence(items) {
+    if (!evidenceContainer) return;
+    evidenceContainer.textContent = '';
+
+    for (var i = 0; i < 3; i++) {
+      var item = items[i];
+      var slot = document.createElement('div');
+      var slotNumber = i < 9 ? '0' + (i + 1) : String(i + 1);
+      slot.setAttribute('role', 'listitem');
+      slot.setAttribute('aria-posinset', String(i + 1));
+      slot.setAttribute('aria-setsize', '3');
+
+      var badge = document.createElement('span');
+      badge.className = 'slot-badge';
+      badge.textContent = 'PROVA ' + slotNumber + (item ? ' // ' + item.type.toUpperCase() : '');
+      slot.appendChild(badge);
+
+      var paragraph = document.createElement('p');
+      if (item) {
+        slot.className = 'preview-evidence-slot';
+        slot.setAttribute('aria-label', 'Prova ' + slotNumber + ': ' + item.title);
+        var title = document.createElement('strong');
+        title.textContent = item.title;
+        paragraph.appendChild(title);
+        paragraph.appendChild(document.createElement('br'));
+        appendLine(paragraph, item.contentNatureLabel);
+        paragraph.appendChild(document.createTextNode('Confiabilidade: ' + item.reliability));
+      } else {
+        slot.className = 'preview-evidence-slot empty';
+        slot.setAttribute('aria-label', 'Prova ' + slotNumber + ' vazia');
+        paragraph.textContent = 'Nenhuma evidência vinculada à manchete.';
+      }
+      slot.appendChild(paragraph);
+      evidenceContainer.appendChild(slot);
+    }
+  }
+
+  function updateStatus() {
+    var missing = [];
+    if (!previewState.title) missing.push('manchete');
+    if (!previewState.thesis) missing.push('tese');
+    if (previewState.items.length < 3) missing.push((3 - previewState.items.length) + ' evidência(s)');
+    previewState.ready = missing.length === 0;
+
+    if (stampEl) {
+      stampEl.className = 'editorial-stamp' + (previewState.items.length === 3 ? ' verified' : '');
+      stampEl.textContent = previewState.items.length === 3 ? '✓ TRÍADE DOCUMENTADA' : 'AGUARDANDO ' + (3 - previewState.items.length) + ' PROVA(S)';
+    }
+    if (readinessBadge) {
+      readinessBadge.className = 'byline-status' + (previewState.ready ? ' ready' : '');
+      readinessBadge.textContent = previewState.ready ? 'STATUS: PRONTO PARA IMPRESSÃO' : 'STATUS: RASCUNHO EM COMPOSIÇÃO';
+      readinessBadge.setAttribute('aria-label', previewState.ready ? 'Status: pronto para impressão' : 'Status: rascunho em composição');
+    }
+    if (statusEl) {
+      statusEl.textContent = previewState.ready ? 'A prévia está completa e pronta para impressão.' : 'Rascunho em composição. Falta: ' + missing.join(', ') + '.';
+    }
+    root.setAttribute('aria-busy', 'false');
+  }
+
+  function render(patch) {
+    patch = patch || {};
+    if (Object.prototype.hasOwnProperty.call(patch, 'title')) previewState.title = displayText(patch.title, '');
+    if (Object.prototype.hasOwnProperty.call(patch, 'thesis')) previewState.thesis = displayText(patch.thesis, '');
+    if (Object.prototype.hasOwnProperty.call(patch, 'items')) previewState.items = normalizeItems(patch.items);
+
+    if (headlineEl) {
+      headlineEl.textContent = previewState.title || placeholderHeadline;
+      headlineEl.style.opacity = previewState.title ? '1' : '0.5';
+    }
+    renderThesis(previewState.thesis);
+    renderEvidence(previewState.items);
+    updateStatus();
+  }
+
+  function getPrintDate(date) {
+    try {
+      return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      }).format(date);
+    } catch (ignored) {
+      return date.toLocaleString('pt-BR');
+    }
+  }
+
+  function resetPrintButton() {
+    if (printTimer) {
+      clearTimeout(printTimer);
+      printTimer = null;
+    }
+    if (btnPrint) btnPrint.disabled = false;
+  }
+
+  if (btnPrint) {
+    btnPrint.addEventListener('click', function() {
+      if (printTimer) return;
+      var now = new Date();
+      var dateStr = getPrintDate(now);
+      var prefix = previewState.ready ? 'VAL-' : 'RASC-';
+      var validationHash = prefix + now.getTime().toString(36).toUpperCase();
+
+      if (newspaperPage) {
+        newspaperPage.setAttribute('data-print-date', dateStr);
+        newspaperPage.setAttribute('data-validation-hash', validationHash);
+      }
+      window.dispatchEvent(new CustomEvent('report:print', {
+        detail: {
+          date: dateStr,
+          validationHash: validationHash,
+          title: previewState.title,
+          hasEvidence: previewState.items.length === 3,
+          isComplete: previewState.ready
+        }
+      }));
+
+      btnPrint.disabled = true;
+      printTimer = setTimeout(function() {
+        window.print();
+        resetPrintButton();
+      }, 150);
+    });
+  }
+
+  window.addEventListener('afterprint', resetPrintButton);
+  window.addEventListener('report:preview', function(event) {
+    render(event.detail || {});
+  });
+  window.addEventListener('report:evidence-selection', function(event) {
+    var detail = event.detail || {};
+    render({ items: detail.items });
+  });
+
+  root.setAttribute('aria-busy', 'true');
+  render({});
+}());
+</script>

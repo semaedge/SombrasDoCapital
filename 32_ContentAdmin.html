@@ -1,0 +1,356 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 32_ContentAdmin.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Editor protegido de conteúdo com estados acessíveis
+
+  PRINCIPAIS FUNCIONALIDADES
+  Administração de conteúdo.
+
+  INTEGRAÇÕES
+  Editor protegido para fases, cenas, evidências e escolhas.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Editor conectado a listContentRecords e saveContentRecord, com seleção de registros,
+  atualização segura, validação e mensagens de operação sem expor detalhes internos.
+-->
+<section data-component="32_ContentAdmin" aria-labelledby="content-admin-heading" aria-describedby="content-admin-description" aria-busy="false">
+  <style>
+    [data-component="32_ContentAdmin"] { --ca-bg: var(--color-deep-shadow); --ca-panel: var(--color-dark-graphite); --ca-card: #101618; --ca-line: #293539; --ca-cyan: var(--color-neon-cyan); --ca-amber: var(--color-warning-amber); --ca-red: var(--color-coral-red); max-width: 900px; margin: 0 auto; padding: 28px; color: var(--color-light-gray); background: var(--ca-bg); font-family: "IBM Plex Mono", "Courier New", monospace; }
+    [data-component="32_ContentAdmin"] *, [data-component="32_ContentAdmin"] *::before, [data-component="32_ContentAdmin"] *::after { box-sizing: border-box; }
+    [data-component="32_ContentAdmin"] .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    [data-component="32_ContentAdmin"] .admin-header { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--ca-line); }
+    [data-component="32_ContentAdmin"] .meta-tag { display: block; margin-bottom: 6px; color: var(--ca-amber); font-size: 10px; letter-spacing: .14em; }
+    [data-component="32_ContentAdmin"] h2 { margin: 0 0 8px; color: #fff; font: 700 clamp(22px, 3vw, 30px) Georgia, serif; }
+    [data-component="32_ContentAdmin"] .admin-intro { margin: 0; max-width: 68ch; color: var(--color-medium-gray); font-size: 12px; line-height: 1.6; }
+    [data-component="32_ContentAdmin"] .admin-scope { margin: 14px 0 0; padding: 10px 12px; border-left: 3px solid var(--ca-amber); background: var(--ca-card); color: #c8d2d5; font-size: 11px; line-height: 1.5; }
+    [data-component="32_ContentAdmin"] .admin-toolbar, [data-component="32_ContentAdmin"] .form-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+    [data-component="32_ContentAdmin"] .admin-toolbar { margin-bottom: 18px; padding: 16px; border: 1px solid var(--ca-line); background: var(--ca-panel); }
+    [data-component="32_ContentAdmin"] .field { display: grid; gap: 6px; flex: 1 1 220px; }
+    [data-component="32_ContentAdmin"] .field-label { color: #b9c7ca; font-size: 11px; }
+    [data-component="32_ContentAdmin"] select, [data-component="32_ContentAdmin"] textarea { width: 100%; border: 1px solid var(--ca-line); border-radius: 3px; color: #fff; background: #080c0d; font: 12px "IBM Plex Mono", monospace; }
+    [data-component="32_ContentAdmin"] select { min-height: 38px; padding: 9px 10px; }
+    [data-component="32_ContentAdmin"] textarea { min-height: 210px; padding: 12px; line-height: 1.6; resize: vertical; }
+    [data-component="32_ContentAdmin"] select:focus, [data-component="32_ContentAdmin"] textarea:focus { border-color: var(--ca-cyan); outline: 2px solid var(--ca-cyan); outline-offset: 2px; }
+    [data-component="32_ContentAdmin"] select:disabled, [data-component="32_ContentAdmin"] textarea:disabled { cursor: wait; opacity: .58; }
+    [data-component="32_ContentAdmin"] .editor-card { padding: 18px; border: 1px solid var(--ca-line); background: var(--ca-panel); }
+    [data-component="32_ContentAdmin"] .content-hint { margin: 7px 0 0; color: var(--color-medium-gray); font-size: 10px; line-height: 1.45; }
+    [data-component="32_ContentAdmin"] .form-actions { justify-content: flex-end; margin-top: 16px; align-items: center; }
+    [data-component="32_ContentAdmin"] button { min-height: 38px; padding: 9px 14px; border: 1px solid var(--ca-cyan); border-radius: 3px; color: var(--ca-cyan); background: transparent; font: 700 11px "IBM Plex Mono", monospace; cursor: pointer; }
+    [data-component="32_ContentAdmin"] button.primary { color: #071011; background: var(--ca-cyan); }
+    [data-component="32_ContentAdmin"] button.secondary { border-color: var(--ca-line); color: var(--color-medium-gray); }
+    [data-component="32_ContentAdmin"] button:hover:not(:disabled) { filter: brightness(1.12); }
+    [data-component="32_ContentAdmin"] button:focus-visible { outline: 2px solid var(--ca-amber); outline-offset: 3px; }
+    [data-component="32_ContentAdmin"] button:disabled { cursor: wait; opacity: .52; }
+    [data-component="32_ContentAdmin"] [data-state] { margin: 14px 0 0; padding: 11px 13px; font-size: 11px; line-height: 1.5; }
+    [data-component="32_ContentAdmin"] [data-state="loading"] { border-left: 3px solid var(--ca-cyan); color: var(--ca-cyan); background: rgba(104, 212, 208, .08); }
+    [data-component="32_ContentAdmin"] [data-state="success"] { border-left: 3px solid #52c484; color: #a7e4be; background: rgba(82, 196, 132, .08); }
+    [data-component="32_ContentAdmin"] [data-state="error"] { border-left: 3px solid var(--ca-red); color: #f7a8a0; background: rgba(226, 116, 104, .08); }
+    [data-component="32_ContentAdmin"] .content-empty { margin: 12px 0 0; color: var(--color-medium-gray); font-size: 11px; }
+    [data-component="32_ContentAdmin"] input[aria-invalid="true"], [data-component="32_ContentAdmin"] textarea[aria-invalid="true"] { border-color: var(--ca-red); }
+    @media (max-width: 620px) { [data-component="32_ContentAdmin"] { padding: 20px 16px; } [data-component="32_ContentAdmin"] .form-actions { flex-direction: column-reverse; align-items: stretch; } [data-component="32_ContentAdmin"] .form-actions button { width: 100%; } }
+    @media (prefers-reduced-motion: reduce) { [data-component="32_ContentAdmin"] * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+  </style>
+  <header class="admin-header">
+    <span class="meta-tag">[ CURADORIA // CONTEÚDO PROTEGIDO ]</span>
+    <h2 id="content-admin-heading">Administração de conteúdo</h2>
+    <p id="content-admin-description" class="admin-intro">Selecione uma coleção para revisar ou criar um registro textual. Apenas editores autorizados podem salvar alterações.</p>
+    <p class="admin-scope"><strong>ESCOPO:</strong> o formulário envia somente o texto informado e a coleção escolhida; regras de autorização e persistência permanecem no servidor.</p>
+  </header>
+  <div class="admin-toolbar" aria-label="Seleção de conteúdo">
+    <div class="field">
+      <label for="content-sheet" class="field-label">Coleção</label>
+      <select id="content-sheet" aria-controls="content-record" aria-describedby="content-admin-description">
+        <option value="Episodes">Episódios</option>
+        <option value="Scenes">Cenas</option>
+        <option value="Choices">Escolhas</option>
+        <option value="Consequences">Consequências</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="content-record" class="field-label">Registro existente</label>
+      <select id="content-record" disabled aria-label="Selecionar registro existente">
+        <option value="">Novo registro</option>
+      </select>
+    </div>
+    <button type="button" id="content-refresh" class="secondary" aria-busy="false"><span aria-hidden="true">↻</span> Atualizar lista</button>
+  </div>
+  <p data-state="loading" id="content-loading" hidden role="status" aria-live="polite" aria-atomic="true">Carregando registros…</p>
+  <p data-state="error" id="content-error" hidden role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1">Não foi possível concluir a operação.</p>
+  <p data-state="success" id="content-success" hidden role="status" aria-live="polite" aria-atomic="true"></p>
+  <p id="content-empty" class="content-empty" hidden role="status" aria-live="polite"></p>
+  <div class="editor-card">
+    <form id="content-form" aria-busy="false" aria-describedby="content-hint content-success content-error">
+      <input type="hidden" id="content-record-id" name="recordId" value="">
+      <div class="field">
+        <label for="content-title" class="field-label">Título ou texto do registro</label>
+        <textarea id="content-title" name="title" required maxlength="5000" aria-describedby="content-hint"></textarea>
+        <p class="content-hint" id="content-hint">O servidor normaliza o texto e descarta identificadores técnicos enviados pelo navegador.</p>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="content-clear" class="secondary">Limpar e criar novo</button>
+        <button type="submit" id="content-submit" class="primary" aria-busy="false"><span id="content-submit-label">Salvar conteúdo</span><span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  </div>
+</section>
+<script>
+(function() {
+  var root = document.querySelector('[data-component="32_ContentAdmin"]');
+  if (!root) return;
+
+  var form = root.querySelector('#content-form');
+  var sheetSelect = root.querySelector('#content-sheet');
+  var recordSelect = root.querySelector('#content-record');
+  var recordIdInput = root.querySelector('#content-record-id');
+  var titleInput = root.querySelector('#content-title');
+  var refreshButton = root.querySelector('#content-refresh');
+  var clearButton = root.querySelector('#content-clear');
+  var submitButton = root.querySelector('#content-submit');
+  var submitLabel = root.querySelector('#content-submit-label');
+  var loading = root.querySelector('#content-loading');
+  var error = root.querySelector('#content-error');
+  var success = root.querySelector('#content-success');
+  var empty = root.querySelector('#content-empty');
+
+  var records = [];
+  var listRequestSerial = 0;
+  var saveBusy = false;
+  var pendingSaveMessage = '';
+  var allowedRoles = ['editor', 'admin'];
+
+  function hasScriptRunner() {
+    return Boolean(window.google && window.google.script && window.google.script.run);
+  }
+
+  function isEditor() {
+    var role = window.currentUser && String(window.currentUser.role || '').trim().toLowerCase();
+    return allowedRoles.indexOf(role) >= 0;
+  }
+
+  function announce(message) {
+    if (success) {
+      success.textContent = message || '';
+      success.hidden = !message;
+    }
+  }
+
+  function showError(message, moveFocus) {
+    if (!error) return;
+    error.textContent = message || 'Não foi possível concluir a operação.';
+    error.hidden = false;
+    if (moveFocus) {
+      try { error.focus(); } catch (ignored) {}
+    }
+  }
+
+  function clearMessages() {
+    if (error) { error.textContent = ''; error.hidden = true; }
+    if (success) { success.textContent = ''; success.hidden = true; }
+  }
+
+  function setEditorEnabled(enabled) {
+    [sheetSelect, recordSelect, refreshButton, clearButton, titleInput, submitButton].forEach(function(control) {
+      if (control) control.disabled = !enabled || saveBusy;
+    });
+    if (recordSelect) recordSelect.disabled = !enabled || saveBusy || !records.length;
+  }
+
+  function setSaveBusy(busy) {
+    saveBusy = Boolean(busy);
+    root.setAttribute('aria-busy', String(saveBusy));
+    if (form) form.setAttribute('aria-busy', String(saveBusy));
+    if (submitButton) {
+      submitButton.disabled = saveBusy || !isEditor();
+      submitButton.setAttribute('aria-busy', String(saveBusy));
+    }
+    if (submitLabel) submitLabel.textContent = saveBusy ? 'Salvando…' : 'Salvar conteúdo';
+    if (refreshButton) {
+      refreshButton.disabled = saveBusy || !isEditor();
+      refreshButton.setAttribute('aria-busy', String(saveBusy));
+    }
+    if (clearButton) clearButton.disabled = saveBusy || !isEditor();
+    if (sheetSelect) sheetSelect.disabled = saveBusy || !isEditor();
+    if (recordSelect) recordSelect.disabled = saveBusy || !isEditor() || !records.length;
+    if (titleInput) titleInput.disabled = saveBusy || !isEditor();
+  }
+
+  function normalizeRecord(raw, index) {
+    if (!raw || typeof raw !== 'object') return null;
+    var id = String(raw.id == null ? '' : raw.id).trim().slice(0, 160);
+    var title = String(raw.title || '').trim().slice(0, 5000);
+    if (!id) return null;
+    return { id: id, title: title || 'Registro sem texto', index: index };
+  }
+
+  function renderRecordOptions() {
+    if (!recordSelect) return;
+    recordSelect.textContent = '';
+    var fresh = document.createElement('option');
+    fresh.value = '';
+    fresh.textContent = 'Novo registro';
+    recordSelect.appendChild(fresh);
+    records.forEach(function(record) {
+      var option = document.createElement('option');
+      option.value = record.id;
+      option.textContent = record.title;
+      recordSelect.appendChild(option);
+    });
+    recordSelect.disabled = !isEditor() || saveBusy || !records.length;
+  }
+
+  function resetEditor() {
+    if (recordSelect) recordSelect.value = '';
+    if (recordIdInput) recordIdInput.value = '';
+    if (titleInput) {
+      titleInput.value = '';
+      titleInput.removeAttribute('aria-invalid');
+    }
+    clearMessages();
+    if (empty) empty.hidden = true;
+  }
+
+  function loadRecords() {
+    if (!sheetSelect) return;
+    var requestId = ++listRequestSerial;
+    var sheetName = sheetSelect.value;
+    records = [];
+    resetEditor();
+    clearMessages();
+    if (loading) loading.hidden = false;
+    if (empty) empty.hidden = true;
+    setEditorEnabled(false);
+    if (!isEditor()) {
+      if (loading) loading.hidden = true;
+      showError('Acesso restrito a editores de conteúdo.', true);
+      return;
+    }
+    if (!hasScriptRunner()) {
+      if (loading) loading.hidden = true;
+      showError('Servidor indisponível. A lista de conteúdo não foi sincronizada.', true);
+      setEditorEnabled(isEditor());
+      return;
+    }
+    window.google.script.run
+      .withSuccessHandler(function(response) {
+        if (requestId !== listRequestSerial) return;
+        if (loading) loading.hidden = true;
+        if (!response || !response.ok || !Array.isArray(response.data)) {
+          showError('Não foi possível carregar os registros confirmados.', true);
+          setEditorEnabled(isEditor());
+          return;
+        }
+        var seen = {};
+        records = response.data.map(normalizeRecord).filter(function(record) {
+          if (!record || seen[record.id]) return false;
+          seen[record.id] = true;
+          return true;
+        });
+        renderRecordOptions();
+        setEditorEnabled(true);
+        if (empty) {
+          empty.textContent = records.length ? '' : 'Nenhum registro existente. O próximo salvamento criará um novo item.';
+          empty.hidden = Boolean(records.length);
+        }
+        var listMessage = pendingSaveMessage || (records.length + ' registro' + (records.length === 1 ? '' : 's') + ' disponível' + (records.length === 1 ? '' : 'is') + ' em ' + sheetName + '.');
+        pendingSaveMessage = '';
+        announce(listMessage);
+      })
+      .withFailureHandler(function() {
+        if (requestId !== listRequestSerial) return;
+        if (loading) loading.hidden = true;
+        showError('Não foi possível carregar os registros confirmados.', true);
+        setEditorEnabled(isEditor());
+      })
+      .listContentRecords(window.currentUser || null, sheetName);
+  }
+
+  if (sheetSelect) sheetSelect.addEventListener('change', loadRecords);
+  if (refreshButton) refreshButton.addEventListener('click', loadRecords);
+  if (clearButton) clearButton.addEventListener('click', function() {
+    resetEditor();
+    if (titleInput) titleInput.focus();
+  });
+  if (recordSelect) recordSelect.addEventListener('change', function() {
+    var selected = records.find(function(record) { return record.id === recordSelect.value; });
+    if (recordIdInput) recordIdInput.value = selected ? selected.id : '';
+    if (titleInput) {
+      titleInput.value = selected ? selected.title : '';
+      titleInput.removeAttribute('aria-invalid');
+      titleInput.focus();
+    }
+    clearMessages();
+  });
+  if (titleInput) titleInput.addEventListener('input', function() {
+    titleInput.removeAttribute('aria-invalid');
+    if (error) error.hidden = true;
+  });
+
+  if (form) form.addEventListener('submit', function(event) {
+    event.preventDefault();
+    if (saveBusy || !isEditor()) {
+      showError('Acesso restrito a editores de conteúdo.', true);
+      return;
+    }
+    if (!form.reportValidity()) return;
+    var title = String(titleInput && titleInput.value || '').trim();
+    if (!title) {
+      if (titleInput) titleInput.setAttribute('aria-invalid', 'true');
+      showError('Informe o texto do registro antes de salvar.', true);
+      return;
+    }
+    if (!hasScriptRunner()) {
+      showError('Servidor indisponível. O conteúdo não foi salvo.', true);
+      return;
+    }
+    clearMessages();
+    setSaveBusy(true);
+    var sheetName = sheetSelect.value;
+    var recordId = recordIdInput ? String(recordIdInput.value || '').trim() : '';
+    window.google.script.run
+      .withSuccessHandler(function(response) {
+        setSaveBusy(false);
+        if (!response || !response.ok) {
+          showError('Não foi possível salvar o conteúdo. Revise o texto e tente novamente.', true);
+          return;
+        }
+        pendingSaveMessage = recordId ? 'Registro atualizado com sucesso.' : 'Novo conteúdo salvo com sucesso.';
+        loadRecords();
+      })
+      .withFailureHandler(function() {
+        setSaveBusy(false);
+        showError('Não foi possível salvar o conteúdo. Tente novamente.', true);
+      })
+      .saveContentRecord(window.currentUser || null, sheetName, { title: title }, recordId || null);
+  });
+
+  setSaveBusy(false);
+  loadRecords();
+}());
+</script>

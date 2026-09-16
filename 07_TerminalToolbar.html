@@ -1,0 +1,492 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 07_TerminalToolbar.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Stub de tela e contrato inicial
+
+  PRINCIPAIS FUNCIONALIDADES
+  Barra de ferramentas.
+
+  INTEGRAÇÕES
+  Filtros, pesquisa, relógio de fase e controles de acessibilidade.
+
+  CONTRATO DE FRONTEND
+  - Consumir somente funções públicas expostas pelo controlador do Apps Script.
+  - Nunca armazenar senha em localStorage, URL, HTML ou logs do navegador.
+  - Escapar conteúdo narrativo antes de inserir HTML; preferir textContent no JavaScript.
+  - Manter estados loading, vazio, sucesso e erro acessíveis.
+
+  CONTRATO DE DADOS
+  - Consumir apenas dados necessários à tela e respeitar o contrato JSON da API.
+  - Não presumir campos opcionais: tratar ausência, lista vazia e resposta parcial.
+  - Enviar mutações uma única vez e refletir sucesso ou erro no estado visível.
+
+  ESTADOS E ACESSIBILIDADE
+  - Implementar loading, vazio, sucesso, erro e estado desabilitado quando aplicável.
+  - Preservar foco, ordem de teclado, labels associados e mensagens anunciáveis.
+  - Não depender apenas de cor, animação, áudio ou hover para comunicar informação.
+
+  SEGURANÇA E LIMITES
+  - Nunca expor senha, token, dados pessoais ou detalhes técnicos no DOM ou nos logs.
+  - Conteúdo remoto deve ser tratado como texto não confiável e inserido com segurança.
+  - Este componente não implementa autorização, persistência ou regras de domínio.
+
+  DIRETRIZES VISUAIS
+  Interface de sistema investigativo em dark graphite, com neon apenas para evidências,
+  links cruciais e estados de interação. O componente deve ser responsivo e legível para
+  estudantes do Ensino Médio, com foco em narrativa, análise de dados e acessibilidade.
+
+  STATUS DO COMPONENTE
+  Implementação produtiva validada conforme o Prompt 57 do prompts.md.
+-->
+<section data-component="07_TerminalToolbar" aria-label="Barra de Ferramentas do Terminal">
+  <div class="filters" role="toolbar" aria-label="Filtros e comandos do terminal">
+    <div class="filter-group">
+      <button type="button" data-filter="all" aria-pressed="true">TODOS</button>
+      <button type="button" data-filter="audio" aria-pressed="false">ÁUDIOS</button>
+      <button type="button" data-filter="spreadsheet" aria-pressed="false">PLANILHAS</button>
+      <button type="button" data-filter="document" aria-pressed="false">MEMORANDOS</button>
+    </div>
+
+    <!-- Botão Exemplos de Busca (Prompt 57) -->
+    <div class="examples-dropdown-container">
+      <button type="button" id="btn-search-examples" class="toolbar-btn" aria-haspopup="true" aria-expanded="false" title="Ver exemplos de buscas para inserir no terminal">
+        <span aria-hidden="true">💡</span> Exemplos de Busca <span class="arrow-down" aria-hidden="true">▼</span>
+      </button>
+      <div class="examples-popover" id="examples-menu" hidden role="menu" aria-label="Comandos pré-definidos">
+        <button type="button" class="example-item" role="menuitem" data-cmd="buscar doações">
+          <span class="cmd-syntax">buscar doações</span>
+          <small class="cmd-desc">Registros de campanhas eleitorais</small>
+        </button>
+        <button type="button" class="example-item" role="menuitem" data-cmd="buscar áudios">
+          <span class="cmd-syntax">buscar áudios</span>
+          <small class="cmd-desc">Gravações e interceptações</small>
+        </button>
+        <button type="button" class="example-item" role="menuitem" data-cmd="buscar contratos">
+          <span class="cmd-syntax">buscar contratos</span>
+          <small class="cmd-desc">Consultorias e parcerias públicas</small>
+        </button>
+        <button type="button" class="example-item" role="menuitem" data-cmd="buscar cerrar">
+          <span class="cmd-syntax">buscar cerrar</span>
+          <small class="cmd-desc">Arquivos da operação e desdobramentos</small>
+        </button>
+      </div>
+    </div>
+
+    <span class="phase">FASE ATIVA: <strong>A CRIA</strong></span>
+
+    <!-- Controles de Acessibilidade: Alto Contraste e Escala Tipográfica (Prompt 65) -->
+    <div class="accessibility-controls" id="accessibility-controls" role="group" aria-label="Controles de Acessibilidade" aria-describedby="preference-status" aria-busy="false">
+      <button type="button" id="contrast-toggle" aria-pressed="false" title="Alternar modo de alto contraste">
+        <span aria-hidden="true">◐</span> ALTO CONTRASTE
+      </button>
+
+      <div class="font-scaler-group" role="group" aria-label="Ajustar tamanho da fonte">
+        <button type="button" id="font-decrease" class="btn-font-scale" title="Diminuir fonte (mínimo 14px)" aria-label="Diminuir tamanho da fonte">A-</button>
+        <span id="font-size-indicator" class="font-size-indicator" aria-live="polite">16px</span>
+        <button type="button" id="font-increase" class="btn-font-scale" title="Aumentar fonte (máximo 20px)" aria-label="Aumentar tamanho da fonte">A+</button>
+      </div>
+      <span id="preference-status" class="preference-status" hidden role="status" aria-live="polite" aria-atomic="true"></span>
+    </div>
+  </div>
+</section>
+
+<style>
+  [data-component="07_TerminalToolbar"] {
+    padding: 12px 18px;
+    color: var(--color-light-gray);
+    background: var(--color-dark-graphite);
+    border-bottom: 1px solid var(--color-slate-gray);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+  }
+
+  [data-component="07_TerminalToolbar"] .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+
+  [data-component="07_TerminalToolbar"] .filter-group {
+    display: flex;
+    gap: 6px;
+  }
+
+  [data-component="07_TerminalToolbar"] button {
+    padding: 8px 12px;
+    border: 1px solid var(--color-neon-cyan);
+    color: var(--color-neon-cyan);
+    background: transparent;
+    font: 700 10px "IBM Plex Mono", monospace;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all .15s ease;
+  }
+
+  [data-component="07_TerminalToolbar"] button[aria-pressed="true"] {
+    color: #071011;
+    background: var(--color-neon-cyan);
+  }
+
+  [data-component="07_TerminalToolbar"] button:hover,
+  [data-component="07_TerminalToolbar"] button:focus-visible {
+    outline: 2px solid var(--color-warning-amber);
+    outline-offset: 2px;
+  }
+
+  /* Dropdown de Exemplos de Busca */
+  [data-component="07_TerminalToolbar"] .examples-dropdown-container {
+    position: relative;
+  }
+
+  [data-component="07_TerminalToolbar"] .toolbar-btn {
+    border-color: var(--color-warning-amber);
+    color: var(--color-warning-amber);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  [data-component="07_TerminalToolbar"] .toolbar-btn:hover {
+    background: rgba(240, 179, 91, 0.15);
+  }
+
+  [data-component="07_TerminalToolbar"] .arrow-down {
+    font-size: 8px;
+    margin-left: 2px;
+  }
+
+  [data-component="07_TerminalToolbar"] .examples-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 250px;
+    background: #111719;
+    border: 1px solid var(--color-warning-amber);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+    border-radius: 3px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    gap: 4px;
+    animation: popover-in .15s ease-out;
+  }
+
+  [data-component="07_TerminalToolbar"] .examples-popover[hidden] {
+    display: none;
+  }
+
+  @keyframes popover-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  [data-component="07_TerminalToolbar"] .example-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    width: 100%;
+    text-align: left;
+    box-sizing: border-box;
+  }
+
+  [data-component="07_TerminalToolbar"] .example-item:hover,
+  [data-component="07_TerminalToolbar"] .example-item:focus-visible {
+    background: #192428;
+    border-color: var(--color-neon-cyan);
+  }
+
+  [data-component="07_TerminalToolbar"] .cmd-syntax {
+    color: var(--color-neon-cyan);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  [data-component="07_TerminalToolbar"] .cmd-desc {
+    color: var(--color-medium-gray);
+    font-size: 9px;
+    margin-top: 2px;
+  }
+
+  [data-component="07_TerminalToolbar"] .phase {
+    margin-left: auto;
+    color: #9eaaae;
+    font-size: 11px;
+  }
+
+  [data-component="07_TerminalToolbar"] .phase strong {
+    color: var(--color-warning-amber);
+    font-weight: 600;
+  }
+
+  /* Controles de Acessibilidade (Prompt 65) */
+  [data-component="07_TerminalToolbar"] .accessibility-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  [data-component="07_TerminalToolbar"] .font-scaler-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #111719;
+    border: 1px solid var(--color-slate-gray);
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+
+  [data-component="07_TerminalToolbar"] .btn-font-scale {
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    border-color: #3b4d54;
+    color: var(--color-light-gray);
+  }
+
+  [data-component="07_TerminalToolbar"] .btn-font-scale:hover,
+  [data-component="07_TerminalToolbar"] .btn-font-scale:focus-visible {
+    border-color: var(--color-neon-cyan);
+    color: var(--color-neon-cyan);
+  }
+
+  [data-component="07_TerminalToolbar"] .font-size-indicator {
+    font-size: 10px;
+    color: var(--color-warning-amber);
+    padding: 0 4px;
+    min-width: 28px;
+    text-align: center;
+    user-select: none;
+  }
+
+  [data-component="07_TerminalToolbar"] .preference-status {
+    flex: 1 0 100%;
+    min-height: 1.2em;
+    color: var(--color-medium-gray);
+    font-size: 10px;
+  }
+
+  [data-component="07_TerminalToolbar"] .preference-status[data-state="saving"] { color: var(--color-warning-amber); }
+  [data-component="07_TerminalToolbar"] .preference-status[data-state="saved"] { color: var(--color-neon-cyan); }
+  [data-component="07_TerminalToolbar"] .preference-status[data-state="error"] { color: var(--color-coral-red); }
+
+  /* 2. Modo de Alto Contraste: Fundo #000000, Texto #ffffff, Bordas 2px, Contraste >= 7:1 */
+  html.high-contrast,
+  html.high-contrast body,
+  html.high-contrast [data-component] {
+    background: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+  }
+
+  html.high-contrast .panel,
+  html.high-contrast .card,
+  html.high-contrast .metric,
+  html.high-contrast .summary-card,
+  html.high-contrast .table-responsive-container,
+  html.high-contrast textarea,
+  html.high-contrast input,
+  html.high-contrast select,
+  html.high-contrast dialog,
+  html.high-contrast [data-component="07_TerminalToolbar"] {
+    background: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: 2px solid #ffffff !important;
+  }
+
+  html.high-contrast button,
+  html.high-contrast a.button,
+  html.high-contrast .btn-font-scale,
+  html.high-contrast .toolbar-btn {
+    border: 2px solid #ffffff !important;
+    color: #ffffff !important;
+    background: #000000 !important;
+  }
+
+  html.high-contrast button[aria-pressed="true"],
+  html.high-contrast button:hover,
+  html.high-contrast button:focus-visible {
+    background: #ffffff !important;
+    color: #000000 !important;
+    outline: 3px solid #ffff00 !important;
+    outline-offset: 2px !important;
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="07_TerminalToolbar"]');
+  if (!root) return;
+
+  var filters = root.querySelectorAll('[data-filter]');
+  filters.forEach(function(button) {
+    button.addEventListener('click', function() {
+      filters.forEach(function(item) {
+        item.setAttribute('aria-pressed', String(item === button));
+      });
+      window.dispatchEvent(new CustomEvent('terminal:filter', { detail: button.dataset.filter }));
+    });
+  });
+
+  // Estado atual das preferências de acessibilidade
+  var currentFontSize = 16;
+  var isHighContrast = false;
+
+  var contrastToggle = root.querySelector('#contrast-toggle');
+  var fontDecrease = root.querySelector('#font-decrease');
+  var fontIncrease = root.querySelector('#font-increase');
+  var fontIndicator = root.querySelector('#font-size-indicator');
+  var accessibilityControls = root.querySelector('#accessibility-controls');
+  var preferenceStatus = root.querySelector('#preference-status');
+  var preferenceRequestId = 0;
+
+  function setPreferenceStatus(message, state) {
+    if (!preferenceStatus) return;
+    preferenceStatus.textContent = message || '';
+    preferenceStatus.dataset.state = state || '';
+    preferenceStatus.hidden = !message;
+    if (accessibilityControls) {
+      accessibilityControls.setAttribute('aria-busy', state === 'saving' ? 'true' : 'false');
+    }
+  }
+
+  function applyPreferences(contrast, size, persist) {
+    isHighContrast = Boolean(contrast);
+    currentFontSize = Math.max(14, Math.min(20, Number(size) || 16));
+
+    // 1 & 2. Ativação da classe .high-contrast na raiz <html>
+    document.documentElement.classList.toggle('high-contrast', isHighContrast);
+    if (contrastToggle) {
+      contrastToggle.setAttribute('aria-pressed', String(isHighContrast));
+    }
+
+    // 3. Ajuste da variável CSS --base-font-size entre 14px e 20px
+    document.documentElement.style.setProperty('--base-font-size', currentFontSize + 'px');
+    document.documentElement.style.fontSize = currentFontSize + 'px';
+    if (fontIndicator) {
+      fontIndicator.textContent = currentFontSize + 'px';
+    }
+
+    window.dispatchEvent(new CustomEvent('terminal:contrast', { detail: isHighContrast }));
+    window.dispatchEvent(new CustomEvent('terminal:font-scale', { detail: currentFontSize }));
+
+    // 4. Salva as escolhas chamando updatePlayerPreferences no backend
+    if (persist) {
+      savePreferences(isHighContrast, currentFontSize);
+    }
+  }
+
+  function savePreferences(contrast, size) {
+    var requestId = ++preferenceRequestId;
+    try {
+      localStorage.setItem('sombras_contrast', String(contrast));
+      localStorage.setItem('sombras_font_size', String(size));
+    } catch(e) {}
+
+    var payload = {
+      highContrast: contrast,
+      fontSize: size
+    };
+
+    var userId = window.currentUserId ? String(window.currentUserId) : '';
+    if (!userId) {
+      setPreferenceStatus('Preferências aplicadas neste dispositivo. Entre para sincronizá-las.', 'local');
+      return;
+    }
+
+    if (window.google && google.script && google.script.run) {
+      setPreferenceStatus('Salvando preferências no servidor…', 'saving');
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (requestId !== preferenceRequestId) return;
+          if (response && response.ok) {
+            setPreferenceStatus('Preferências sincronizadas com sua sessão.', 'saved');
+            return;
+          }
+          setPreferenceStatus('Preferências aplicadas neste dispositivo; não foi possível sincronizar.', 'error');
+        })
+        .withFailureHandler(function() {
+          if (requestId !== preferenceRequestId) return;
+          setPreferenceStatus('Preferências aplicadas neste dispositivo; tente sincronizar novamente.', 'error');
+        })
+        .updatePlayerPreferences(userId, payload);
+    } else {
+      setPreferenceStatus('Preferências aplicadas neste dispositivo; servidor indisponível.', 'error');
+    }
+  }
+
+  // 1. Alternador de Alto Contraste
+  if (contrastToggle) {
+    contrastToggle.addEventListener('click', function() {
+      applyPreferences(!isHighContrast, currentFontSize, true);
+    });
+  }
+
+  // 3. Controles discretos de tamanho de fonte (A- e A+)
+  if (fontDecrease) {
+    fontDecrease.addEventListener('click', function() {
+      if (currentFontSize > 14) {
+        applyPreferences(isHighContrast, currentFontSize - 1, true);
+      }
+    });
+  }
+
+  if (fontIncrease) {
+    fontIncrease.addEventListener('click', function() {
+      if (currentFontSize < 20) {
+        applyPreferences(isHighContrast, currentFontSize + 1, true);
+      }
+    });
+  }
+
+  // Recupera preferências locais salvas previamente
+  try {
+    var savedContrast = localStorage.getItem('sombras_contrast') === 'true';
+    var savedFontSize = parseInt(localStorage.getItem('sombras_font_size'), 10) || 16;
+    applyPreferences(savedContrast, savedFontSize, false);
+  } catch(e) {
+    applyPreferences(false, 16, false);
+  }
+
+  // Menu de Exemplos de Busca (Prompt 57)
+  var btnExamples = root.querySelector('#btn-search-examples');
+  var menuExamples = root.querySelector('#examples-menu');
+
+  if (btnExamples && menuExamples) {
+    btnExamples.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var isExpanded = btnExamples.getAttribute('aria-expanded') === 'true';
+      btnExamples.setAttribute('aria-expanded', String(!isExpanded));
+      menuExamples.hidden = isExpanded;
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!root.contains(e.target)) {
+        btnExamples.setAttribute('aria-expanded', 'false');
+        menuExamples.hidden = true;
+      }
+    });
+
+    var exampleItems = menuExamples.querySelectorAll('.example-item');
+    exampleItems.forEach(function(item) {
+      item.addEventListener('click', function() {
+        var cmd = item.getAttribute('data-cmd');
+        btnExamples.setAttribute('aria-expanded', 'false');
+        menuExamples.hidden = true;
+
+        window.dispatchEvent(new CustomEvent('terminal:insert-command', {
+          detail: { command: cmd, autoExecute: false }
+        }));
+      });
+    });
+  }
+}());
+</script>

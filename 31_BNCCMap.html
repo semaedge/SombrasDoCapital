@@ -1,0 +1,340 @@
+<!--
+  O TERMINAL: SOMBRAS DO CAPITAL
+  Componente: 31_BNCCMap.html
+  Camada: Interface HTML do Google Apps Script
+  Tipo: Visualização de Competências BNCC
+
+  PRINCIPAIS FUNCIONALIDADES
+  Quadro visual de mapeamento entre decisões críticas e competências BNCC do Ensino Médio.
+
+  INTEGRAÇÕES
+  Consumido por 28_TeacherDashboard.html como visualização alternativa.
+
+  CONTRATO DE FRONTEND
+  - Recebe dados via evento 'analytics:update' ou carrega dados internos.
+  - Apresenta competências específicas do Ensino Médio para Ciências Humanas e Sociais Aplicadas.
+
+  STATUS DA IMPLEMENTAÇÃO
+  Quadro curricular propositivo com leitura contextual opcional dos dados agregados do painel;
+  não calcula domínio, nota ou classificação de estudantes.
+-->
+<section data-component="31_BNCCMap" data-content-nature="concept" data-curriculum-stage="Ensino Médio" data-validation-status="proposta — validação docente pendente" aria-labelledby="bncc-map-heading" aria-describedby="bncc-map-description">
+  <div class="bncc-container">
+    <header class="bncc-header">
+      <span class="meta-tag">[ ALINHAMENTO CURRICULAR // BASE NACIONAL COMUM ]</span>
+      <h3 id="bncc-map-heading">Competências BNCC Mobilizadas</h3>
+      <p class="bncc-subtitle" id="bncc-map-description">
+        Ensino Médio — Ciências Humanas e Sociais Aplicadas
+      </p>
+      <p class="bncc-use-note"><strong>CONCEITO CURRICULAR:</strong> este quadro é uma proposta de alinhamento, não uma avaliação automática de aprendizagem.</p>
+      <p class="bncc-use-note"><strong>ESCOPO DE USO:</strong> proposta para o Ensino Médio, com mediação docente. Ainda não validada para anos iniciais ou demais etapas da Escola Classe 115 Norte.</p>
+      <p class="bncc-data-status" id="bncc-data-status" role="status" aria-live="polite" aria-atomic="true">Aguardando contexto agregado do painel; este quadro não transforma escolhas em competência medida.</p>
+    </header>
+
+    <div class="bncc-grid" role="list" aria-label="Competências BNCC mobilizadas">
+      <!-- Competência 1: Análise e Interpretação -->
+      <article class="bncc-card" data-competence="1" role="listitem" aria-labelledby="bncc-competence-1-title">
+        <div class="card-header">
+          <span class="card-number">1</span>
+          <h4 class="card-title" id="bncc-competence-1-title">Análise Contextual</h4>
+        </div>
+        <p class="card-description">
+          Analisar processos políticos, econômicos, sociais e culturais, mobilizando procedimentos metodológicos e conhecimentos das Ciências Humanas para compreender a realidade.
+        </p>
+        <div class="card-evidence">
+          <strong class="evidence-label">Evidência pedagógica prevista:</strong>
+          <span class="evidence-text">Investigação da origem dos documentos, checagem de autenticidade e análise de contexto antes de publicar.</span>
+        </div>
+      </article>
+
+      <!-- Competência 2: Pensamento Crítico -->
+      <article class="bncc-card" data-competence="2" role="listitem" aria-labelledby="bncc-competence-2-title">
+        <div class="card-header">
+          <span class="card-number">2</span>
+          <h4 class="card-title" id="bncc-competence-2-title">Pensamento Crítico e Autonomia</h4>
+        </div>
+        <p class="card-description">
+          Compreender a diversidade de perspectivas, argumentar com base em fatos confiáveis e desenvolver autonomia intelectual.
+        </p>
+        <div class="card-evidence">
+          <strong class="evidence-label">Evidência pedagógica prevista:</strong>
+          <span class="evidence-text">Ponderação entre velocidade e rigor documental, reconhecimento de vieses e construção de narrativas fundamentadas.</span>
+        </div>
+      </article>
+
+      <!-- Competência 5: Cultura Digital -->
+      <article class="bncc-card" data-competence="5" role="listitem" aria-labelledby="bncc-competence-5-title">
+        <div class="card-header">
+          <span class="card-number">5</span>
+          <h4 class="card-title" id="bncc-competence-5-title">Cultura Digital e Ética</h4>
+        </div>
+        <p class="card-description">
+          Compreender os impactos das tecnologias digitais na sociedade e utilizar ferramentas de forma crítica, reflexiva, ética e responsável.
+        </p>
+        <div class="card-evidence">
+          <strong class="evidence-label">Evidência pedagógica prevista:</strong>
+          <span class="evidence-text">Decisões sobre publicação digital, verificação de fontes online, proteção de dados sensíveis e responsabilidade editorial.</span>
+        </div>
+      </article>
+
+      <!-- Competência 7: Responsabilidade Social -->
+      <article class="bncc-card" data-competence="7" role="listitem" aria-labelledby="bncc-competence-7-title">
+        <div class="card-header">
+          <span class="card-number">7</span>
+          <h4 class="card-title" id="bncc-competence-7-title">Argumentação e Responsabilidade</h4>
+        </div>
+        <p class="card-description">
+          Mobilizar conhecimentos para formular propostas de intervenção solidária e responsável, respeitando valores democráticos e direitos humanos.
+        </p>
+        <div class="card-evidence">
+          <strong class="evidence-label">Evidência pedagógica prevista:</strong>
+          <span class="evidence-text">Reflexão sobre impacto social das decisões editoriais, equilíbrio entre interesse público e privacidade individual.</span>
+        </div>
+      </article>
+    </div>
+
+    <footer class="bncc-footer">
+      <p>
+        <strong>Fonte factual externa:</strong> Ministério da Educação (MEC), 
+        <a href="https://www.gov.br/mec/pt-br/cne/bncc_ensino_medio.pdf" target="_blank" rel="noopener noreferrer">
+          Base Nacional Comum Curricular — Ensino Médio (BNCC-EM, 2018)
+        </a>
+        <br><span class="source-status">Versão: BNCC-EM-2018 — Resolução CNE/CP nº 4/2018. URL e título identificados; acesso em 04/09/2026. A conferência e adequação à turma ainda dependem de revisão docente.</span>
+      </p>
+    </footer>
+  </div>
+</section>
+
+<style>
+  [data-component="31_BNCCMap"] {
+    --bncc-bg: var(--color-deep-shadow);
+    --bncc-panel: var(--color-dark-graphite);
+    --bncc-card: #101618;
+    --bncc-line: #293539;
+    --bncc-cyan: var(--color-neon-cyan);
+    --bncc-amber: var(--color-warning-amber);
+    --bncc-ink: var(--color-light-gray);
+    --bncc-muted: var(--color-medium-gray);
+    padding: 20px;
+    color: var(--bncc-ink);
+    background: var(--bncc-bg);
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    box-sizing: border-box;
+  }
+
+  [data-component="31_BNCCMap"] *,
+  [data-component="31_BNCCMap"] *::before,
+  [data-component="31_BNCCMap"] *::after { box-sizing: border-box; }
+
+  [data-component="31_BNCCMap"] .bncc-container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--bncc-line);
+  }
+
+  [data-component="31_BNCCMap"] .meta-tag {
+    color: var(--bncc-amber);
+    font-size: 10px;
+    letter-spacing: .14em;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  [data-component="31_BNCCMap"] h3 {
+    margin: 0 0 6px;
+    font: 700 clamp(20px, 3.2vw, 24px) Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-subtitle {
+    margin: 0;
+    font-size: 12px;
+    color: var(--bncc-muted);
+  }
+
+  [data-component="31_BNCCMap"] .bncc-use-note {
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    border-left: 3px solid var(--bncc-amber);
+    background: var(--bncc-card);
+    color: var(--bncc-ink);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-use-note strong {
+    color: var(--bncc-amber);
+    letter-spacing: .06em;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-data-status {
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    border-left: 3px solid var(--bncc-cyan);
+    background: var(--bncc-card);
+    color: var(--bncc-muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-card {
+    background: var(--bncc-panel);
+    border: 1px solid var(--bncc-line);
+    border-radius: 4px;
+    padding: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    transition: transform .15s ease, border-color .15s ease;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-card:hover {
+    border-color: var(--bncc-cyan);
+    transform: translateY(-2px);
+  }
+
+  [data-component="31_BNCCMap"] .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  [data-component="31_BNCCMap"] .card-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--bncc-cyan);
+    color: var(--color-deep-shadow);
+    font: 700 16px "IBM Plex Mono", monospace;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  [data-component="31_BNCCMap"] .card-title {
+    margin: 0;
+    font: 700 14px Georgia, serif;
+    color: #ffffff;
+  }
+
+  [data-component="31_BNCCMap"] .card-description {
+    margin: 0 0 16px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--bncc-muted);
+  }
+
+  [data-component="31_BNCCMap"] .card-evidence {
+    padding: 12px;
+    background: var(--bncc-card);
+    border-left: 3px solid var(--bncc-amber);
+    border-radius: 3px;
+  }
+
+  [data-component="31_BNCCMap"] .evidence-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 10px;
+    letter-spacing: .08em;
+    color: var(--bncc-amber);
+    text-transform: uppercase;
+  }
+
+  [data-component="31_BNCCMap"] .evidence-text {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--bncc-ink);
+  }
+
+  [data-component="31_BNCCMap"] .bncc-footer {
+    padding: 16px 20px;
+    background: var(--bncc-panel);
+    border: 1px solid var(--bncc-line);
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-footer p {
+    margin: 0;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-footer a {
+    color: var(--bncc-cyan);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color .15s ease;
+  }
+
+  [data-component="31_BNCCMap"] .bncc-footer a:hover,
+  [data-component="31_BNCCMap"] .bncc-footer a:focus-visible {
+    border-bottom-color: var(--bncc-cyan);
+    outline: 2px solid var(--bncc-amber);
+    outline-offset: 3px;
+  }
+
+  [data-component="31_BNCCMap"] .source-status {
+    color: var(--bncc-muted);
+    font-size: 10px;
+  }
+
+  @media (max-width: 768px) {
+    [data-component="31_BNCCMap"] .bncc-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-component="31_BNCCMap"] * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  }
+</style>
+
+<script>
+(function() {
+  var root = document.querySelector('[data-component="31_BNCCMap"]');
+  if (!root) return;
+  var status = root.querySelector('#bncc-data-status');
+
+  function finiteCount(value) {
+    var number = Number(value);
+    return isFinite(number) && !isNaN(number) && number >= 0 ? Math.floor(number) : null;
+  }
+
+  function updateContext(detail) {
+    var data = detail || {};
+    var choices = data.criticalChoices;
+    var publish = choices && choices.publish ? finiteCount(choices.publish.count) : null;
+    var verify = choices && choices.verify ? finiteCount(choices.verify.count) : null;
+    var decisions = finiteCount(data.decisionsCount);
+    if (publish == null || verify == null) {
+      if (status) status.textContent = 'Aguardando contexto agregado do painel; este quadro não transforma escolhas em competência medida.';
+      root.setAttribute('data-context-status', 'unavailable');
+      return;
+    }
+    var criticalTotal = publish + verify;
+    var total = decisions == null ? criticalTotal : Math.max(decisions, criticalTotal);
+    if (status) {
+      status.textContent = 'Contexto agregado disponível: ' + total + ' decisões analisadas, sendo ' + criticalTotal + ' escolhas críticas. A leitura curricular continua dependente da mediação docente.';
+    }
+    root.setAttribute('data-context-status', 'available');
+  }
+
+  window.addEventListener('analytics:update', function(event) {
+    updateContext(event && event.detail);
+  });
+
+  root.setAttribute('data-context-status', 'unavailable');
+}());
+</script>
